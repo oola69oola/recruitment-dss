@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RecruitIQ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="brand-bar">
+        <div class="brand-lockup">
+          <div class="brand-mark">R</div>
+          <div>
+          <p class="eyebrow">Decision Support System</p>
+          <h1>RecruitIQ</h1>
+          </div>
+        </div>
+        <div class="header-status"><span class="status-dot"></span> IT talent intelligence</div>
+      </header>
+
+      <div class="hero-copy">
+        <p class="eyebrow">Candidate intelligence</p>
+        <h2>Find the strongest fit, faster.</h2>
+        <p>Define the role, upload your candidate pool, and get a transparent ranking based on skills, experience, and career fit.</p>
+      </div>
+
+      <main class="grid">
+        <section class="card form-panel">
+          <h2>Candidate Evaluation</h2>
+          <form method="post" enctype="multipart/form-data">
+            <div class="field-group">
+              <label for="job_title">Target role</label>
+              <input id="job_title" name="job_title" list="it-roles" placeholder="e.g. Cloud Engineer" />
+              <datalist id="it-roles">
+                <option value="Software Engineer"></option>
+                <option value="Data Analyst"></option>
+                <option value="AI Engineer"></option>
+                <option value="Machine Learning Engineer"></option>
+                <option value="Cloud Engineer"></option>
+              </datalist>
+              <small>RecruitIQ is currently scoped to IT roles: software engineering, data analysis, AI/ML, data engineering, and cloud computing.</small>
+            </div>
+
+            <div class="field-group">
+              <label for="hard_skills">Required hard skills</label>
+              <input id="hard_skills" name="hard_skills" placeholder="e.g. Python, AWS, Docker" />
+            </div>
+
+            <div class="field-group">
+              <label for="soft_skills">Required soft skills</label>
+              <input id="soft_skills" name="soft_skills" placeholder="e.g. Communication, Leadership" />
+            </div>
+
+            <div class="field-group">
+              <label for="job_description">Job description</label>
+              <textarea id="job_description" name="job_description" rows="6" placeholder="Describe the role, responsibilities, domain, and success criteria..."></textarea>
+              <small>Job-description language contributes to semantic relevance and skill extraction.</small>
+            </div>
+
+            <div class="field-group">
+              <label for="other_requirements">Other requirements</label>
+              <textarea id="other_requirements" name="other_requirements" rows="4" placeholder="Examples: MSc preferred, experience in fintech, willingness to travel, right to work..."></textarea>
+              <small>Use this for additional evidence you want the ranking to check.</small>
+            </div>
+
+            <div class="field-group">
+              <label for="required_years">Required experience (years)</label>
+              <input id="required_years" name="required_years" type="number" min="0" max="50" placeholder="e.g. 5" />
+            </div>
+
+            <div class="field-group scrub-group">
+              <label>Optional PII and demographic scrubbing</label>
+              <small>Select the attributes to hide before scoring. Nothing is scrubbed unless selected.</small>
+              <div class="scrub-options">
+                <label class="checkbox-row"><input id="scrub_names" name="scrub_names" type="checkbox" /> Names</label>
+                <label class="checkbox-row"><input id="scrub_emails" name="scrub_emails" type="checkbox" /> Emails</label>
+                <label class="checkbox-row"><input id="scrub_phones" name="scrub_phones" type="checkbox" /> Phone numbers</label>
+                <label class="checkbox-row"><input id="scrub_locations" name="scrub_locations" type="checkbox" /> Locations</label>
+                <label class="checkbox-row"><input id="scrub_demographics" name="scrub_demographics" type="checkbox" /> Demographic markers</label>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label for="cv_text">Paste CV text</label>
+              <textarea id="cv_text" name="cv_text" rows="12" placeholder="Paste candidate CV or resume here..."></textarea>
+            </div>
+
+            <div class="field-group">
+              <label for="cv_files">Upload CV files</label>
+              <input id="cv_files" name="cv_files" type="file" accept=".txt,.pdf,.docx" multiple />
+              <small>Select one or more PDF, DOCX, or TXT files. All files will be ranked together.</small>
+            </div>
+
+            <div class="submit-row">
+              <button class="primary-button compact-button" type="submit">Rank</button>
+            </div>
+          </form>
+          {% if errors %}
+          <div class="notice error">
+            {% for error in errors %}<p>{{ error }}</p>{% endfor %}
+          </div>
+          {% endif %}
+        </section>
+
+        {% if result %}
+        <section class="card score-panel">
+          <div class="score-header">
+            <p class="eyebrow">Top-ranked candidate</p>
+            <h3>{{ result.filename }}</h3>
+            <h2>{{ result.final_score }} / 100</h2>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric">
+              <span>Hard skills</span>
+              <strong>{{ result.scorecard.hard_skills_match }}%</strong>
+            </div>
+            <div class="metric">
+              <span>Soft skills</span>
+              <strong>{{ result.scorecard.soft_skills_match }}%</strong>
+            </div>
+            <div class="metric">
+              <span>Role fit</span>
+              <strong>{{ result.scorecard.job_title_proximity }}%</strong>
+            </div>
+            <div class="metric">
+              <span>Tenure</span>
+              <strong>{{ result.scorecard.tenure_alignment }}%</strong>
+            </div>
+            <div class="metric">
+              <span>Education</span>
+              <strong>{{ result.scorecard.education_alignment }}%</strong>
+            </div>
+            <div class="metric">
+              <span>Description relevance</span>
+              <strong>{{ result.scorecard.job_description_relevance }}%</strong>
+            </div>
+            <div class="metric">
+              <span>Other requirements</span>
+              <strong>{{ result.scorecard.other_requirements_match }}%</strong>
+            </div>
+            <div class="metric">
+              <span>Career trajectory</span>
+              <strong>{{ result.scorecard.career_trajectory }}%</strong>
+            </div>
+          </div>
+
+          <div class="section-block">
+            <h3>Explainability summary</h3>
+            <ul class="explanations">
+              {% for item in result.explanations %}
+              <li>
+                <div>
+                  <span class="label">{{ item.label }}</span>
+                  <p>{{ item.detail }}</p>
+                </div>
+                <span class="pill">{{ item.contribution }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          <div class="section-block">
+            <h3>Fairness audit</h3>
+            <p>Parity gap: {{ result.fairness_summary.parity_gap }}%</p>
+            <ul class="parity-list">
+              {% for group, rate in result.fairness_summary.selection_rates.items() %}
+              <li><span>{{ group }}</span><strong>{{ rate }}%</strong></li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+        {% endif %}
+      </main>
+
+      {% if ranked_results %}
+      <section class="card ranking-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Relevance ranking</p>
+            <h2>{{ ranked_results|length }} candidate{% if ranked_results|length != 1 %}s{% endif %} evaluated</h2>
+          </div>
+          <span class="pill">Sorted by fit</span>
+        </div>
+        <div class="ranking-list">
+          {% for candidate in ranked_results %}
+          <article class="ranking-row {% if loop.first %}top-ranked{% endif %}">
+            <div class="rank-number">{{ candidate.rank }}</div>
+            <div class="candidate-details">
+              <strong>{{ candidate.filename }}</strong>
+              <span>{{ candidate.candidate_role }} · {{ candidate.profile.years_experience }} years · {{ candidate.profile.company_count }} companies · {{ candidate.profile.education or 'Education unavailable' }}</span>
+            </div>
+            <div class="candidate-breakdown">
+              <span>Skills {{ candidate.scorecard.hard_skills_match }}%</span>
+              <span>Soft skills {{ candidate.scorecard.soft_skills_match }}%</span>
+              <span>Role {{ candidate.scorecard.job_title_proximity }}%</span>
+              <span>Trajectory {{ candidate.scorecard.career_trajectory }}%</span>
+            </div>
+            <strong class="candidate-score">{{ candidate.final_score }}</strong>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if history %}
+      <section class="card memory-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Memory dashboard</p>
+            <h2>Past, present, and future rankings</h2>
+          </div>
+          <span class="pill">Saved snapshots</span>
+        </div>
+
+        <div class="memory-grid">
+          <div class="memory-column">
+            <h3>Current</h3>
+            {% set latest = history[0] %}
+            <div class="history-card current-card">
+              <strong>{{ latest.title }}</strong>
+              <span>{{ latest.saved_at }}</span>
+              <p>{{ latest.rankings|length }} candidates currently ranked</p>
+              <a class="secondary-button" href="{{ url_for('download_ranking', snapshot_id=latest.id) }}">Download CSV</a>
+            </div>
+          </div>
+
+          <div class="memory-column">
+            <h3>Past</h3>
+            <div class="history-stack">
+              {% for snapshot in history[1:6] %}
+              <div class="history-item">
+                <div>
+                  <strong>{{ snapshot.title }}</strong>
+                  <span>{{ snapshot.saved_at }}</span>
+                </div>
+                <a href="{{ url_for('download_ranking', snapshot_id=snapshot.id) }}">Export</a>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="memory-column">
+            <h3>Future watchlist</h3>
+            <ul class="watchlist">
+              <li>Senior Cloud Engineer</li>
+              <li>AI/ML Data Scientist</li>
+              <li>Platform Engineer</li>
+              <li>Senior Data Analyst</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+    </div>
+  </body>
+</html>

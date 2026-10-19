@@ -1,0 +1,5 @@
+Candidate Name: Zip Candidate 0
+Email: zipcand0@example.com
+Role: Product Manager
+Skills: SQL, PRD
+Experience: 4 years.

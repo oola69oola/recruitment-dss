@@ -1,0 +1,2 @@
+# RecruitIQ Django Project Config
+

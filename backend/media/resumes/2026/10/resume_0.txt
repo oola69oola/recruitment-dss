@@ -1,0 +1,4 @@
+Candidate Name: Candidate 0
+Email: cand0@example.com
+Skills: SQL, Jira, PRD Writing
+Experience: 5 years as Product Manager at Tech Corp.
