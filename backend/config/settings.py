@@ -79,7 +79,17 @@ DB_USER = os.environ.get('DB_USER', 'postgres')
 DB_PASSWORD = os.environ.get('DB_PASSWORD', 'postgres')
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_PORT = os.environ.get('DB_PORT', '5432')
-USE_SQLITE = os.environ.get('USE_SQLITE', 'False') == 'True'
+try:
+    import psycopg  # noqa: F401
+    HAS_POSTGRES_DRIVER = True
+except ImportError:
+    try:
+        import psycopg2  # noqa: F401
+        HAS_POSTGRES_DRIVER = True
+    except ImportError:
+        HAS_POSTGRES_DRIVER = False
+
+USE_SQLITE = os.environ.get('USE_SQLITE', 'True' if not HAS_POSTGRES_DRIVER else 'False') == 'True' or not HAS_POSTGRES_DRIVER
 
 if USE_SQLITE:
     DATABASES = {

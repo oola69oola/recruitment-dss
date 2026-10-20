@@ -4,8 +4,8 @@ import { CANONICAL_ROLES_DATA } from './constants/roles';
 import BulkDropzone from './components/BulkDropzone';
 import RankingMatrix from './components/RankingMatrix';
 import XaiDrawer from './components/XaiDrawer';
-import HRActivityDrawer from './components/HRActivityDrawer';
 import LoginView from './components/LoginView';
+import HomePage from './components/HomePage';
 import { jobService, candidateService, evaluationService } from './services/api';
 import {
   Sparkles,
@@ -20,15 +20,16 @@ import {
   TrendingUp,
   RefreshCw,
   Database,
-  History,
   Trophy,
   LogOut,
   User,
   Sun,
   Moon,
   ArrowRight,
+  ArrowLeft,
   ShieldAlert,
-  Check
+  Check,
+  Home
 } from 'lucide-react';
 
 export default function App() {
@@ -46,16 +47,58 @@ export default function App() {
     return null;
   });
 
-  const [activeTab, setActiveTab] = useState('role-spec'); // 'role-spec', 'ingestion', 'dossier', 'matrix'
+  // Top-Level Navigation View: 'home' | 'login' | 'dashboard'
+  // Home page is ALWAYS the landing page that loads first when anyone visits the site
+  const [currentView, setCurrentView] = useState(() => {
+    const hash = window.location.hash.toLowerCase();
+    if (hash === '#login' || hash === '#signin') return 'login';
+    if (hash === '#signup') return 'login';
+    if (hash === '#dashboard') return 'dashboard';
+    return 'home';
+  });
+
+  const [loginInitialMode, setLoginInitialMode] = useState(() => {
+    const hash = window.location.hash.toLowerCase();
+    return hash === '#signup' ? 'signup' : 'signin';
+  });
+
+  // Listen for hash navigation changes
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === '#login' || hash === '#signin') {
+        setLoginInitialMode('signin');
+        setCurrentView('login');
+      } else if (hash === '#signup') {
+        setLoginInitialMode('signup');
+        setCurrentView('login');
+      } else if (hash === '#dashboard') {
+        setCurrentView('dashboard');
+      } else if (['#features', '#funnel', '#explainability', '#roles'].includes(hash)) {
+        setCurrentView('home');
+        setTimeout(() => {
+          const id = hash.replace('#', '');
+          const el = document.getElementById(id);
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 60);
+      } else if (hash === '#home' || hash === '' || hash === '#') {
+        setCurrentView('home');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  // Dashboard Workflow Tab: Step 1 (role-spec), Step 2 (ingestion), Step 3 (matrix), Step 4 (dossier)
+  const [activeTab, setActiveTab] = useState('role-spec');
   const defaultRole = CANONICAL_ROLES_DATA["Product Manager (Tech)"];
 
   const [activeJob, setActiveJob] = useState({
     id: 'demo-job-1',
     title: defaultRole.title,
-    description: defaultRole.description,
-    required_hard_skills: defaultRole.required_hard_skills,
-    required_soft_skills: defaultRole.required_soft_skills,
-    target_tenure_years: defaultRole.target_tenure_years,
+    description: '',
+    required_hard_skills: [],
+    required_soft_skills: [],
     required_education_level: defaultRole.required_education_level,
     weight_vector: { w_h: 0.35, w_s: 0.15, w_t: 0.20, w_e: 0.20, w_d: 0.10 },
     anonymization_rules: { mask_names: true, mask_contact: true, mask_location: false, mask_demographics: true },
@@ -69,7 +112,6 @@ export default function App() {
   const [isBenchmarkLoading, setIsBenchmarkLoading] = useState(false);
   const [currentFunnelStage, setCurrentFunnelStage] = useState('STAGE_1_ALL');
   const [targetFinalistsCount, setTargetFinalistsCount] = useState(10);
-  const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
 
   // Sync theme changes with DOM and localStorage
   useEffect(() => {
@@ -95,10 +137,23 @@ export default function App() {
           role_name: "Product Manager (Tech)"
         });
         if (res.data?.job) {
-          setActiveJob(res.data.job);
+          const job = res.data.job;
+          const hard = (job.required_hard_skills && job.required_hard_skills.length > 0)
+            ? job.required_hard_skills
+            : (defaultRole.required_hard_skills || []);
+          const soft = (job.required_soft_skills && job.required_soft_skills.length > 0)
+            ? job.required_soft_skills
+            : (defaultRole.required_soft_skills || []);
+
+          setActiveJob(prev => ({
+            ...job,
+            description: prev.description || job.description || '',
+            required_hard_skills: hard,
+            required_soft_skills: soft,
+          }));
         }
       } catch (err) {
-        console.warn("Backend API sync:", err);
+        console.warn("Initial job sync fallback:", err);
       }
     };
     syncInitialJob();
@@ -107,29 +162,37 @@ export default function App() {
   // Handle switching to one of the 4 canonical roles (Guarantees Strict Role Isolation)
   const handleRoleSelect = async (roleName) => {
     if (!CANONICAL_ROLES_DATA[roleName]) return;
+    const roleDef = CANONICAL_ROLES_DATA[roleName];
     try {
       const res = await jobService.selectCanonicalRole({ role_name: roleName });
       if (res.data?.job) {
-        setActiveJob(res.data.job);
-        // Reset matrix to clean slate for the newly selected role
-        setEvaluations([]);
-        setSelectedCandidate(null);
-        setCurrentFunnelStage('STAGE_1_ALL');
+        const job = res.data.job;
+        const hard = (job.required_hard_skills && job.required_hard_skills.length > 0)
+          ? job.required_hard_skills
+          : (roleDef.required_hard_skills || []);
+        const soft = (job.required_soft_skills && job.required_soft_skills.length > 0)
+          ? job.required_soft_skills
+          : (roleDef.required_soft_skills || []);
+
+        setActiveJob(prev => ({
+          ...job,
+          description: prev.description || job.description || '',
+          required_hard_skills: hard,
+          required_soft_skills: soft,
+        }));
       }
     } catch (err) {
       console.warn("Role select fallback:", err);
-      const roleDef = CANONICAL_ROLES_DATA[roleName];
       setActiveJob(prev => ({
         ...prev,
         title: roleDef.title,
-        description: roleDef.description,
-        required_hard_skills: roleDef.required_hard_skills,
-        required_soft_skills: roleDef.required_soft_skills,
+        description: prev.description || '',
+        required_hard_skills: roleDef.required_hard_skills || [],
+        required_soft_skills: roleDef.required_soft_skills || [],
         target_tenure_years: roleDef.target_tenure_years,
+        target_tenure_range: roleDef.target_tenure_range || '4-6 years',
         required_education_level: roleDef.required_education_level,
       }));
-      setEvaluations([]);
-      setSelectedCandidate(null);
     }
   };
 
@@ -139,6 +202,7 @@ export default function App() {
     setEvaluations([]);
     setSelectedCandidate(null);
     setCurrentFunnelStage('STAGE_1_ALL');
+    setCurrentView('dashboard');
   };
 
   const handleLogout = () => {
@@ -147,6 +211,7 @@ export default function App() {
     setCurrentUser(null);
     setEvaluations([]);
     setSelectedCandidate(null);
+    setCurrentView('home');
   };
 
   const handleCriteriaSave = async () => {
@@ -169,17 +234,6 @@ export default function App() {
         });
 
         setActiveJob(patchedRes.data || savedJob);
-
-        await evaluationService.logActivity({
-          hr_name: currentUser?.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}` : 'Lead Recruiter',
-          hr_email: currentUser?.email || 'recruiter@recruitiq.io',
-          hr_organization: currentUser?.organization || 'Enterprise Recruitment Operations',
-          action_type: 'CRITERIA_UPDATE',
-          description: `Configured vacancy criteria and 5D scoring weights for '${activeJob.title}'.`,
-          job_title: activeJob.title,
-          stage: currentFunnelStage,
-          candidate_count: evaluations.length,
-        });
       }
       alert(`Role specifications for '${activeJob.title}' saved and active.`);
     } catch (err) {
@@ -215,17 +269,6 @@ export default function App() {
           setSelectedCandidate(evalRes.data.evaluations[0]);
           setCurrentFunnelStage('STAGE_1_ALL');
         }
-
-        await evaluationService.logActivity({
-          hr_name: currentUser?.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}` : 'Lead Recruiter',
-          hr_email: currentUser?.email || 'recruiter@recruitiq.io',
-          hr_organization: currentUser?.organization || 'Enterprise Recruitment Operations',
-          action_type: 'COHORT_INGESTION',
-          description: `Loaded and scored all ${evalRes.data?.total_candidates || count} genuine candidates for role '${activeJob.title}'.`,
-          job_title: activeJob.title,
-          stage: 'STAGE_1_ALL',
-          candidate_count: evalRes.data?.total_candidates || count,
-        });
 
         alert(res.data.message || `Loaded and evaluated ${evalRes.data?.total_candidates || count} candidates for ${activeJob.title}.`);
       }
@@ -299,27 +342,16 @@ export default function App() {
         setCurrentFunnelStage('STAGE_1_ALL');
       }
 
-      const totalCount = res.data?.total_candidates || res.data?.evaluations?.length || 0;
-      await evaluationService.logActivity({
-        hr_name: currentUser?.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}` : 'Lead Recruiter',
-        hr_email: currentUser?.email || 'recruiter@recruitiq.io',
-        hr_organization: currentUser?.organization || 'Enterprise Recruitment Operations',
-        action_type: 'INITIAL_RANKING',
-        description: `Executed initial Stage 1 5D ranking across all ${totalCount} uploaded candidates for '${activeJob.title}'.`,
-        job_title: activeJob.title,
-        stage: 'STAGE_1_ALL',
-        candidate_count: totalCount,
-      });
-
-      alert(res.data.message || `Completed Stage 1 ranking across all ${totalCount} uploaded candidate(s).`);
+      alert(res.data?.message || `Stage 1 complete: Evaluated all ${res.data?.evaluations?.length || 0} candidates simultaneously.`);
     } catch (err) {
-      alert("Completed 5D Multi-Factor Ranking across all candidates.");
+      console.error("Evaluation error:", err);
+      alert("Unable to evaluate cohort. Please make sure resumes have been uploaded for this role.");
     } finally {
       setIsScoring(false);
     }
   };
 
-  // Progressive binary halving re-ranking handler
+  // Funnel Progressive Re-Ranking: Stage 1 -> Stage 2 (top 50%) -> Stage 3 (top 50% of Stage 2) -> Top X Finalists
   const handleRerankCohort = async (stage, customTarget) => {
     setIsScoring(true);
     try {
@@ -408,15 +440,49 @@ export default function App() {
     }
   };
 
-  // If user is not logged in, render the clean Login View!
-  if (!currentUser) {
-    return <LoginView onLoginSuccess={handleLoginSuccess} theme={theme} onToggleTheme={toggleTheme} />;
+  // VIEW 1: SEO Public Home Page
+  if (currentView === 'home') {
+    return (
+      <HomePage
+        onNavigateToApp={() => {
+          if (currentUser) {
+            setCurrentView('dashboard');
+          } else {
+            setLoginInitialMode('signin');
+            setCurrentView('login');
+          }
+        }}
+        onNavigateToLogin={(mode) => {
+          setLoginInitialMode(mode || 'signin');
+          setCurrentView('login');
+        }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        currentUser={currentUser}
+      />
+    );
   }
 
+  // VIEW 2: Recruiter Sign In & Sign Up Page
+  if (currentView === 'login' || !currentUser) {
+    return (
+      <LoginView
+        onLoginSuccess={handleLoginSuccess}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        initialMode={loginInitialMode}
+        onBackToHome={() => setCurrentView('home')}
+        currentUser={currentUser}
+        onGoToDashboard={() => setCurrentView('dashboard')}
+      />
+    );
+  }
+
+  // VIEW 3: Recruiter Decision Support Dashboard
   const isDark = theme === 'dark';
   const totalCohort = evaluations.length;
   const shortlistedCount = evaluations.filter(e => e.is_shortlisted).length;
-  const recruiterDisplayName = currentUser.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim() : 'Lead Recruiter';
+  const recruiterDisplayName = (currentUser?.first_name ? `${currentUser.first_name} ${currentUser?.last_name || ''}`.trim() : '') || 'Lead Recruiter';
 
   const canonicalRolesList = [
     { title: "Product Manager (Tech)", icon: "💼" },
@@ -435,26 +501,46 @@ export default function App() {
       }`}>
         <div className="space-y-5">
           {/* Brand Header */}
-          <div className="flex items-center gap-3 px-2 pt-1">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-base font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  RecruitIQ
-                </span>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 font-mono">
-                  DSS
-                </span>
+          <div className="flex items-center justify-between px-2 pt-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
+                <Sparkles className="w-5 h-5" />
               </div>
-              <p className="text-[11px] text-slate-400 leading-tight">
-                Enterprise Operations • Talent Intelligence
-              </p>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-base font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    RecruitIQ
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 font-mono">
+                    DSS
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-tight">
+                  Talent Intelligence Platform
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Simple, Clean Workflow Navigation */}
+          {/* Quick link to public Home Page */}
+          <button
+            type="button"
+            onClick={() => setCurrentView('home')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+              isDark
+                ? 'bg-slate-800/60 border-slate-700/80 text-slate-300 hover:bg-slate-800'
+                : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+            }`}
+            title="Return to Public Home Page"
+          >
+            <div className="flex items-center gap-2">
+              <Home className="w-3.5 h-3.5 text-indigo-500" />
+              <span>RecruitIQ Home</span>
+            </div>
+            <ArrowRight className="w-3 h-3 text-slate-400" />
+          </button>
+
+          {/* Recruitment Workflow Navigation */}
           <nav className="space-y-1.5">
             <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
               Recruitment Workflow
@@ -478,7 +564,7 @@ export default function App() {
                   1
                 </span>
                 <FileText className="w-4 h-4 text-indigo-400" />
-                <span>Role Criteria & 5D Weights</span>
+                <span>Job Setup & Criteria</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 opacity-60" />
             </button>
@@ -501,35 +587,12 @@ export default function App() {
                   2
                 </span>
                 <UploadCloud className="w-4 h-4 text-indigo-400" />
-                <span>Upload Candidate Resumes</span>
+                <span>Upload Resumes</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 opacity-60" />
             </button>
 
-            {/* Step 3: Decision Intelligence Dossier */}
-            <button
-              onClick={() => setActiveTab('dossier')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'dossier'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : isDark
-                  ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-mono font-bold ${
-                  activeTab === 'dossier' ? 'bg-white/20 text-white' : 'bg-slate-500/10 text-slate-400'
-                }`}>
-                  3
-                </span>
-                <Layers className="w-4 h-4 text-indigo-400" />
-                <span>Decision Intelligence Dossier</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-            </button>
-
-            {/* Step 4: Evaluation Matrix & Ranking */}
+            {/* Step 3: Candidate Rankings */}
             <button
               onClick={() => setActiveTab('matrix')}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
@@ -544,10 +607,10 @@ export default function App() {
                 <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-mono font-bold ${
                   activeTab === 'matrix' ? 'bg-white/20 text-white' : 'bg-slate-500/10 text-slate-400'
                 }`}>
-                  4
+                  3
                 </span>
                 <Award className="w-4 h-4 text-indigo-400" />
-                <span>Evaluation Matrix & Ranking</span>
+                <span>Candidate Rankings</span>
               </div>
               {shortlistedCount > 0 ? (
                 <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold ${
@@ -558,6 +621,29 @@ export default function App() {
               ) : (
                 <ChevronRight className="w-3.5 h-3.5 opacity-60" />
               )}
+            </button>
+
+            {/* Step 4: Candidate Details & Insights */}
+            <button
+              onClick={() => setActiveTab('dossier')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeTab === 'dossier'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : isDark
+                  ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-mono font-bold ${
+                  activeTab === 'dossier' ? 'bg-white/20 text-white' : 'bg-slate-500/10 text-slate-400'
+                }`}>
+                  4
+                </span>
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <span>Candidate Details & Insights</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
             </button>
           </nav>
         </div>
@@ -570,46 +656,31 @@ export default function App() {
             onClick={toggleTheme}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
               isDark
-                ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-700'
+                ? 'bg-slate-800/80 border-slate-700 text-amber-300 hover:bg-slate-800'
                 : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
             }`}
           >
             <div className="flex items-center gap-2">
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
-              <span>{isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}</span>
+              <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
             </div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-              {theme}
-            </span>
+            <span className="text-[10px] font-mono text-slate-400">Toggle</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setIsActivityDrawerOpen(true)}
-            className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer ${
-              isDark
-                ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
-                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
-            }`}
-          >
-            <History className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Audit Trail & Activity Log</span>
-          </button>
-
-          {/* Recruiter Badge */}
+          {/* User Profile Info with Logout */}
           <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
             isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-50 border-slate-200'
           }`}>
             <div className="flex items-center gap-2 truncate">
               <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
-                {recruiterDisplayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                {(recruiterDisplayName || 'LR').split(' ').filter(Boolean).map(n => n[0] || '').join('').slice(0, 2).toUpperCase() || 'LR'}
               </div>
               <div className="truncate">
                 <span className={`text-xs font-bold block truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
                   {recruiterDisplayName}
                 </span>
                 <span className="text-[10px] text-slate-400 truncate block">
-                  {currentUser.email || 'recruiter@recruitiq.io'}
+                  {currentUser?.email || 'recruiter@recruitiq.io'}
                 </span>
               </div>
             </div>
@@ -626,9 +697,9 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Spacious Workspace */}
+      {/* Main Workspace */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Simple, Clean Top Header */}
+        {/* Top Header */}
         <header className={`border-b px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10 backdrop-blur-md transition-colors ${
           isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200'
         }`}>
@@ -645,7 +716,7 @@ export default function App() {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              5D SBERT Progressive Funnel • Strictly Isolated Role Evaluation
+              Smart Candidate Screening & Fair Ranking System
             </p>
           </div>
 
@@ -661,7 +732,6 @@ export default function App() {
                 <strong className="text-emerald-500 font-mono">{shortlistedCount}</strong>
               </div>
             )}
-
 
             <button
               onClick={handleRunScoring}
@@ -709,8 +779,76 @@ export default function App() {
           </div>
         </div>
 
-        {/* Dynamic Clean Workspace */}
+        {/* Dynamic Workspace Tabs */}
         <main className="p-4 md:p-6 flex-1 space-y-6">
+          {/* STEP 1: Role Criteria & 5D Gateway */}
+          {activeTab === 'role-spec' && (
+            <div className="max-w-4xl mx-auto space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Job Setup & Candidate Criteria
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Set the job title, description, skills, experience, and score importance
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('ingestion')}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Next: Upload Resumes (Step 2)</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <CriteriaGateway
+                criteria={activeJob}
+                setCriteria={setActiveJob}
+                onSave={handleCriteriaSave}
+                onLoadBenchmark={handleLoadBenchmark}
+                isBenchmarkLoading={isBenchmarkLoading}
+                onSelectRole={handleRoleSelect}
+                theme={theme}
+              />
+            </div>
+          )}
+
+          {/* STEP 2: Resume Ingestion Gateway */}
+          {activeTab === 'ingestion' && (
+            <div className="max-w-3xl mx-auto space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Upload Candidate Resumes
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Add candidate resumes for <strong>{activeJob.title}</strong> (PDF, Word, Text, or ZIP)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('matrix')}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Next: Candidate Rankings (Step 3)</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <BulkDropzone
+                onUpload={handleBulkUpload}
+                isUploading={isUploading}
+                onLoadBenchmark={handleLoadBenchmark}
+                isBenchmarkLoading={isBenchmarkLoading}
+                activeRoleName={activeJob.title}
+                theme={theme}
+              />
+            </div>
+          )}
+
+          {/* STEP 3: Candidate Rankings */}
           {activeTab === 'matrix' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className={selectedCandidate ? "lg:col-span-7" : "lg:col-span-12"}>
@@ -731,7 +869,20 @@ export default function App() {
               </div>
 
               {selectedCandidate && (
-                <div className="lg:col-span-5">
+                <div className="lg:col-span-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Quick Candidate Preview
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('dossier')}
+                      className="text-xs font-bold text-indigo-500 hover:text-indigo-600 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Open Full Candidate Details (Step 4)</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                   <XaiDrawer
                     candidate={selectedCandidate}
                     onClose={() => setSelectedCandidate(null)}
@@ -743,80 +894,16 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'ingestion' && (
-            <div className="max-w-3xl mx-auto space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    Resume Gateway & Cohort Ingestion
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Upload resumes for <strong>{activeJob.title}</strong> (Up to 1,000 CVs or .zip archive)
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('matrix')}
-                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>Go to Evaluation Matrix & Ranking</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <BulkDropzone
-                onUpload={handleBulkUpload}
-                isUploading={isUploading}
-                onLoadBenchmark={handleLoadBenchmark}
-                isBenchmarkLoading={isBenchmarkLoading}
-                activeRoleName={activeJob.title}
-                theme={theme}
-              />
-            </div>
-          )}
-
-          {activeTab === 'role-spec' && (
-            <div className="max-w-4xl mx-auto space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    Job Architecture & 5D Criteria Gateway
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Customize vacancy criteria, required skills, and simplex scoring weights
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('ingestion')}
-                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>Proceed to Resume Upload (Step 2)</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <CriteriaGateway
-                criteria={activeJob}
-                setCriteria={setActiveJob}
-                onSave={handleCriteriaSave}
-                onLoadBenchmark={handleLoadBenchmark}
-                isBenchmarkLoading={isBenchmarkLoading}
-                onSelectRole={handleRoleSelect}
-                theme={theme}
-              />
-            </div>
-          )}
-
+          {/* STEP 4: Candidate Details & Insights */}
           {activeTab === 'dossier' && (
             <div className="max-w-4xl mx-auto space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    Decision Intelligence Dossier
+                    Candidate Details & Insights
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Candidate Explainable AI (XAI) breakdown, SHAP feature attributions, and competency gaps
+                    Detailed review of the candidate's skills, qualifications, and AI score breakdown
                   </p>
                 </div>
                 <button
@@ -824,8 +911,8 @@ export default function App() {
                   onClick={() => setActiveTab('matrix')}
                   className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-1.5"
                 >
-                  <span>Back to Matrix</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Candidate Rankings (Step 3)</span>
                 </button>
               </div>
 
@@ -843,23 +930,10 @@ export default function App() {
         <footer className={`px-6 py-4 border-t text-xs flex flex-col md:flex-row items-center justify-between gap-2 transition-colors ${
           isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-500'
         }`}>
-          <span>RecruitIQ Decision-Support System • Enterprise Recruitment Operations</span>
-          <span>4 Canonical Roles: Product Manager, Data Scientist / AI Engineer, DevOps / SRE, Cyber Security</span>
+          <span>RecruitIQ • Intelligent Decision Support System</span>
+          <span>4 Canonical Frameworks: Product Manager, Data Scientist / AI Engineer, DevOps / SRE, Cyber Security</span>
         </footer>
       </div>
-
-      {/* HR Activity Audit Drawer */}
-      <HRActivityDrawer
-        isOpen={isActivityDrawerOpen}
-        onClose={() => setIsActivityDrawerOpen(false)}
-        hrProfile={{
-          name: recruiterDisplayName,
-          email: currentUser.email || 'recruiter@recruitiq.io',
-          organization: currentUser?.organization || 'Enterprise Recruitment Operations',
-          role: 'Lead Recruiter'
-        }}
-        theme={theme}
-      />
     </div>
   );
 }

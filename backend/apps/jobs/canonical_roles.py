@@ -22,7 +22,7 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
     "Product Manager (Tech)": {
         "title": "Product Manager (Tech)",
         "tagline": "Product Strategy, PRDs, Roadmaps & SaaS Lifecycle",
-        "description": "Seeking a strategic and technical Product Manager to lead cross-functional product development, define product roadmaps, author PRDs, and drive data-informed feature iterations across SaaS and API infrastructure.",
+        "description": "",
         "required_hard_skills": [
             "prd writing", "product roadmap", "product strategy", "wireframing",
             "user research", "a/b testing", "kpi definition", "saas metrics",
@@ -42,7 +42,7 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
     "Data Scientist / AI Engineer": {
         "title": "Data Scientist / AI Engineer",
         "tagline": "ML Models, Deep Learning, MLOps & GenAI/LLM Pipelines",
-        "description": "Seeking an experienced Data Scientist / AI Engineer to architect predictive machine learning models, train deep learning pipelines, and deploy production-grade LLM applications and MLOps workflows.",
+        "description": "",
         "required_hard_skills": [
             "python", "sql", "pandas", "numpy", "scikit-learn", "pytorch",
             "tensorflow", "deep learning", "nlp", "transformers", "llms",
@@ -62,7 +62,7 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
     "DevOps / SRE Engineer": {
         "title": "DevOps / SRE Engineer",
         "tagline": "Cloud Infrastructure, Kubernetes, CI/CD & System Reliability",
-        "description": "Seeking an experienced Systems, DevOps and SRE Engineer to manage high-availability cloud infrastructure, design automated CI/CD pipelines, configure Kubernetes clusters, and guarantee 99.99% system reliability.",
+        "description": "",
         "required_hard_skills": [
             "kubernetes", "docker", "terraform", "aws", "gcp", "ansible",
             "prometheus", "grafana", "ci/cd", "github actions", "bash",
@@ -82,7 +82,7 @@ CANONICAL_ROLES: Dict[str, Dict[str, Any]] = {
     "Cyber Security": {
         "title": "Cyber Security",
         "tagline": "Cloud Security, SIEM Monitoring, Penetration Testing & OWASP Hardening",
-        "description": "Seeking a detail-oriented Cyber Security Engineer to secure cloud architecture, configure firewalls and IDS/IPS, perform vulnerability assessments and penetration testing, monitor SIEM event logging, and lead incident responses.",
+        "description": "",
         "required_hard_skills": [
             "incident response", "vulnerability management", "siem", "splunk",
             "firewalls", "ids/ips", "iam", "owasp top 10", "nmap",

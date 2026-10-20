@@ -66,16 +66,16 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
           <div>
             <div className="flex items-center gap-2">
               <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Candidate Ingestion Gateway
+                Upload Candidate Resumes
               </h2>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border font-mono ${
                 isDark ? 'bg-indigo-950/80 text-indigo-300 border-indigo-700' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
               }`}>
-                Up to 1,000 CVs
+                Up to 1,000 Resumes
               </span>
             </div>
             <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              High-throughput ingestion of up to 1,000 resumes (PDF, DOCX, TXT, or ZIP archives)
+              Upload candidate CVs in PDF, Word (DOCX), Text (TXT), or a ZIP folder
             </p>
           </div>
         </div>
@@ -85,20 +85,20 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
           onClick={() => setShowPasteBox(!showPasteBox)}
           className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold transition cursor-pointer"
         >
-          {showPasteBox ? '← Upload Files Instead' : '+ Or Paste Raw CV Text'}
+          {showPasteBox ? '← Upload Files Instead' : '+ Or Paste Resume Text Directly'}
         </button>
       </div>
 
-      {/* High-Throughput Capacity & Language Gate Guarantees */}
+      {/* Feature Badges */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
         <div className={`p-3 rounded-xl border flex items-start gap-2.5 ${
           isDark ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50 border-slate-200/70'
         }`}>
           <Layers className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
           <div>
-            <span className={`font-bold block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Max 1,000 CVs</span>
+            <span className={`font-bold block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Bulk Upload</span>
             <span className={`text-[11px] leading-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Ingest batches of up to 1,000 resumes at once without system bottlenecks.
+              Easily upload up to 1,000 candidate resumes together in one batch.
             </span>
           </div>
         </div>
@@ -108,9 +108,9 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
         }`}>
           <Globe className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
           <div>
-            <span className={`font-bold block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>English Language Gate</span>
+            <span className={`font-bold block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>English Resumes</span>
             <span className={`text-[11px] leading-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Grammar validator ('en') automatically screens documents before vector ranking.
+              Automatically checks that uploaded resumes are in English.
             </span>
           </div>
         </div>
@@ -120,9 +120,9 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
         }`}>
           <Archive className="w-4 h-4 text-cyan-500 flex-shrink-0 mt-0.5" />
           <div>
-            <span className={`font-bold block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>ZIP Unpacking</span>
+            <span className={`font-bold block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>ZIP Folders Supported</span>
             <span className={`text-[11px] leading-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Drop `.zip` archives containing up to 1,000 resumes for automated unpacking.
+              Drop a single .zip folder and the system will unpack all resumes inside.
             </span>
           </div>
         </div>
@@ -150,12 +150,12 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
             {isUploading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Ingesting Pasted Resume...</span>
+                <span>Uploading Pasted Resume...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                <span>Ingest & Validate Pasted Resume</span>
+                <span>Upload & Process Pasted Resume</span>
               </>
             )}
           </button>
@@ -188,10 +188,10 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
               <UploadCloud className="w-7 h-7" />
             </div>
             <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-              Drag & Drop Bulk Candidate Resumes Here, or Click to Browse
+              Drag & Drop Candidate Resumes Here, or Click to Browse
             </p>
             <p className={`text-[11px] mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Supports PDF, DOCX, TXT, and ZIP archives • Maximum 1,000 CVs per batch
+              Supports PDF, Word (DOCX), Text (TXT), and ZIP folders • Up to 1,000 resumes
             </p>
           </div>
 
@@ -204,7 +204,7 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
             }`}>
               <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
               <span>
-                <strong>Batch Limit Notice:</strong> You selected {selectedFiles.length} files. The gateway will ingest the first <strong>1,000 CVs</strong> in this batch.
+                <strong>Batch Limit Notice:</strong> You selected {selectedFiles.length} files. The system will process the first <strong>1,000 resumes</strong> in this batch.
               </span>
             </div>
           )}
@@ -218,7 +218,7 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
             }`}>
               <Archive className="w-4 h-4 text-cyan-400 flex-shrink-0" />
               <span>
-                <strong>ZIP Archive Selected:</strong> Resumes inside will be automatically unpacked and parsed (up to 1,000 total CVs).
+                <strong>ZIP Folder Selected:</strong> Resumes inside will be automatically unpacked and parsed (up to 1,000 resumes).
               </span>
             </div>
           )}
@@ -229,10 +229,10 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
             }`}>
               <div className={`flex items-center justify-between text-xs mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 <span>
-                  Selected {selectedFiles.length} file(s) for ingestion:
+                  Selected {selectedFiles.length} file(s) ready to upload:
                 </span>
                 <span className={`font-bold font-mono ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>
-                  {Math.min(selectedFiles.length, MAX_BATCH_CAPACITY)} / 1,000 CVs
+                  {Math.min(selectedFiles.length, MAX_BATCH_CAPACITY)} / 1,000 Resumes
                 </span>
               </div>
               <ul className={`max-h-28 overflow-y-auto text-[11px] space-y-1 pr-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
@@ -249,7 +249,7 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
                 ))}
                 {selectedFiles.length > 50 && (
                   <li className={`text-[10px] italic pt-1 font-medium ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                    ... and {selectedFiles.length - 50} more file(s) queued for batch ingestion
+                    ... and {selectedFiles.length - 50} more file(s) ready to upload
                   </li>
                 )}
               </ul>
@@ -265,13 +265,13 @@ export default function BulkDropzone({ onUpload, isUploading, onLoadBenchmark, i
             {isUploading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Ingesting & Validating Resumes...</span>
+                <span>Uploading & Processing Resumes...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
                 <span>
-                  Ingest {selectedFiles.length ? `${Math.min(selectedFiles.length, MAX_BATCH_CAPACITY)} Resume(s)` : 'Batch'} (Max 1,000)
+                  Upload & Process {selectedFiles.length ? `${Math.min(selectedFiles.length, MAX_BATCH_CAPACITY)} Resume(s)` : 'Files'}
                 </span>
               </>
             )}

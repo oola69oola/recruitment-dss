@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="recruitiq-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="50%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <linearGradient id="recruitiq-accent" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+  </defs>
+  <!-- Modern Rounded Diamond/Hexagon Base -->
+  <rect x="8" y="8" width="84" height="84" rx="24" fill="url(#recruitiq-grad)" />
+  <!-- Stylized Geometric 'R' & Decision Node Architecture -->
+  <path d="M32 28 H54 C63 28 68 33 68 41 C68 49 63 54 54 54 H42 V72 H32 V28 Z M42 37 V45 H53 C57 45 59 43 59 41 C59 39 57 37 53 37 H42 Z" fill="#ffffff" />
+  <path d="M52 52 L68 72 H56 L43 54 Z" fill="#ffffff" />
+  <!-- Decision Sparkle / Intelligence Node -->
+  <circle cx="70" cy="30" r="6" fill="#38bdf8" />
+  <polygon points="70,18 73,26 81,27 75,32 77,40 70,36 63,40 65,32 59,27 67,26" fill="#34d399" />
+</svg>
+

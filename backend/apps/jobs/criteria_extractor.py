@@ -312,7 +312,10 @@ def extract_5d_criteria_from_job_description(
     )
 
     return {
+        "extracted": True,
+        "is_auto_extracted": True,
         "title": detected_title,
+        "title_proximity_match": detected_title,
         "required_hard_skills": hard_skills,
         "required_soft_skills": soft_skills,
         "target_tenure_range": tenure_range,
@@ -320,6 +323,5 @@ def extract_5d_criteria_from_job_description(
         "required_education_level": education_level,
         "weight_vector": weight_vector,
         "summary": summary,
-        "is_auto_extracted": True
     }
 

@@ -11,9 +11,9 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
         isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-200/90 text-slate-500'
       }`}>
         <HelpCircle className="w-10 h-10 text-slate-400 mb-2.5 opacity-60" />
-        <p className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>No candidate selected for dossier inspection.</p>
+        <p className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>No candidate selected.</p>
         <p className={`text-[11px] mt-1 text-center max-w-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Select any candidate row from the Evaluation Matrix to inspect their plain-English decision narrative, SHAP feature attributions, and skill-gap breakdown.
+          Click on any candidate from the ranking list above to see why they scored high or low, their matched skills, and recommendations.
         </p>
       </div>
     );
@@ -39,11 +39,11 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
 
   // Format SHAP data for BarChart (Satisfies Shapley Efficiency Axiom)
   const shapData = [
-    { name: 'Hard Skills (Sh)', val: shap_attributions.hard_skill_contrib ?? 0 },
-    { name: 'Soft Skills (Ss)', val: shap_attributions.soft_skill_contrib ?? 0 },
-    { name: 'Role Proximity (St)', val: shap_attributions.title_proximity_contrib ?? 0 },
-    { name: 'Tenure & Stability (Se)', val: shap_attributions.experience_contrib ?? 0 },
-    { name: 'Education (Sd)', val: shap_attributions.education_contrib ?? 0 },
+    { name: 'Technical Skills', val: shap_attributions.hard_skill_contrib ?? 0 },
+    { name: 'People Skills', val: shap_attributions.soft_skill_contrib ?? 0 },
+    { name: 'Job Title Match', val: shap_attributions.title_proximity_contrib ?? 0 },
+    { name: 'Work Experience', val: shap_attributions.experience_contrib ?? 0 },
+    { name: 'Education', val: shap_attributions.education_contrib ?? 0 },
   ];
 
   const matchedHard = skill_gaps.matched_hard_skills || [];
@@ -63,7 +63,7 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-500">
-              Decision Intelligence & Attribution Dossier
+              Candidate Evaluation & Insights
             </span>
           </div>
 
@@ -86,14 +86,14 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
                 isDark ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               }`}>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Top 50% Shortlisted</span>
+                <span>Shortlisted</span>
               </span>
             ) : (
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1 ${
                 isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border border-slate-200'
               }`}>
                 <XCircle className="w-3.5 h-3.5 text-slate-500" />
-                <span>Put Away / Below Cutoff</span>
+                <span>Not Shortlisted</span>
               </span>
             )}
           </div>
@@ -124,7 +124,7 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
         <div className="flex items-center gap-3 self-end sm:self-auto">
           <div className="text-right">
             <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
-              Composite Score
+              Overall Match Score
             </span>
             <span className="text-2xl font-black font-mono text-indigo-500">
               {final_weighted_score.toFixed(1)}%
@@ -153,16 +153,16 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
             isDark ? 'text-slate-200' : 'text-slate-800'
           }`}>
             <Award className="w-4 h-4 text-indigo-500" />
-            <span>Calibrated Decision Narrative</span>
+            <span>Decision Summary & Explanation</span>
           </span>
           <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
             isDark ? 'bg-indigo-950/70 text-indigo-300 border-indigo-800' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
           }`}>
-            Shapley Calibrated
+            AI Analyzed
           </span>
         </div>
         <p className={`text-xs leading-relaxed font-sans ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-          {plain_english_summary || "Candidate evaluated according to 5D SBERT multi-factor criteria."}
+          {plain_english_summary || "Candidate evaluated according to job criteria and requirements."}
         </p>
       </div>
 
@@ -171,14 +171,14 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
         <div className="flex items-center justify-between">
           <div>
             <h3 className={`text-xs font-bold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-              Local SHAP Feature Attributions (φ<sub>i</sub>)
+              Why This Candidate Scored High or Low
             </h3>
             <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Deviations from cohort expectation E[f(x)] = {baseValue.toFixed(1)}%
+              How each factor pushed their score above or below the candidate average ({baseValue.toFixed(1)}%)
             </p>
           </div>
           <span className={`text-[11px] font-mono font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-            Efficiency Axiom Validated
+            Balanced Scoring
           </span>
         </div>
 
@@ -222,10 +222,10 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
       <div className={`pt-2 border-t space-y-3 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
         <div className="flex items-center justify-between">
           <h3 className={`text-xs font-bold uppercase tracking-wide ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-            Competency Gap & Alignment Report
+            Skills & Qualifications Check
           </h3>
           <span className={`text-xs font-mono font-bold ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>
-            Hard Skills Coverage: {hardCoverage.toFixed(0)}%
+            Technical Skills Match: {hardCoverage.toFixed(0)}%
           </span>
         </div>
 
@@ -236,7 +236,7 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
           }`}>
             <span className={`font-bold flex items-center gap-1.5 text-xs ${isDark ? 'text-emerald-300' : 'text-emerald-900'}`}>
               <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Matched Competencies ({matchedHard.length + matchedSoft.length})</span>
+              <span>Matched Skills ({matchedHard.length + matchedSoft.length})</span>
             </span>
             <div className="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto">
               {[...matchedHard, ...matchedSoft].length ? (
@@ -250,7 +250,7 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
                   </span>
                 ))
               ) : (
-                <span className={`text-[11px] italic ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>No matching keywords detected.</span>
+                <span className={`text-[11px] italic ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>No matching skills found.</span>
               )}
             </div>
           </div>
@@ -261,7 +261,7 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
           }`}>
             <span className={`font-bold flex items-center gap-1.5 text-xs ${isDark ? 'text-rose-300' : 'text-rose-900'}`}>
               <XCircle className="w-3.5 h-3.5 text-rose-500" />
-              <span>Missing Required Competencies ({missingHard.length + missingSoft.length})</span>
+              <span>Missing Skills ({missingHard.length + missingSoft.length})</span>
             </span>
             <div className="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto">
               {[...missingHard, ...missingSoft].length ? (
@@ -275,7 +275,7 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
                   </span>
                 ))
               ) : (
-                <span className={`text-[11px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>All mandatory skills matched!</span>
+                <span className={`text-[11px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>All required skills matched!</span>
               )}
             </div>
           </div>
@@ -295,7 +295,7 @@ export default function XaiDrawer({ candidate, onClose, onMitigateFairness, them
             }`}
           >
             <ShieldAlert className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Verify Fairlearn Demographic Parity (10% Disparity Threshold)</span>
+            <span>Run Hiring Fairness & Anti-Bias Check</span>
           </button>
         </div>
       )}

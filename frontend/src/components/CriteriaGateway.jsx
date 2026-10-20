@@ -4,16 +4,8 @@ import {
   GraduationCap, Save, Check, Target, Sparkles, Database, Layers, X, Plus,
   Wand2, AlertCircle, RefreshCw, CheckCircle2, ChevronDown
 } from 'lucide-react';
-import { CANONICAL_ROLES_DATA } from '../constants/roles';
+import { CANONICAL_ROLES_DATA, TENURE_RANGES, SAMPLE_JOB_DESCRIPTIONS } from '../constants/roles';
 import { jobService } from '../services/api';
-
-export const TENURE_RANGES = [
-  { label: '0-1 years (Entry-Level / Intern)', value: '0-1 years', midpoint: 1.0, short: '0-1 yrs', badge: 'Entry' },
-  { label: '1-3 years (Junior / Associate)', value: '1-3 years', midpoint: 2.0, short: '1-3 yrs', badge: 'Junior' },
-  { label: '4-6 years (Mid-Level / Mid-Senior)', value: '4-6 years', midpoint: 5.0, short: '4-6 yrs', badge: 'Mid-Level' },
-  { label: '7-10 years (Senior / Lead)', value: '7-10 years', midpoint: 8.5, short: '7-10 yrs', badge: 'Senior' },
-  { label: '10+ years (Principal / Director)', value: '10+ years', midpoint: 12.0, short: '10+ yrs', badge: 'Leadership' },
-];
 
 export default function CriteriaGateway({
   criteria,
@@ -44,6 +36,7 @@ export default function CriteriaGateway({
   const [newSoftSkillInput, setNewSoftSkillInput] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionNotice, setExtractionNotice] = useState(null);
+  const [showManual5DConfig, setShowManual5DConfig] = useState(false);
   const debounceTimerRef = useRef(null);
 
   // Sync inputs when active title changes
@@ -68,20 +61,30 @@ export default function CriteriaGateway({
     const roleDef = CANONICAL_ROLES_DATA[roleKey];
     if (!roleDef) return;
 
-    setHardSkillsInput(roleDef.required_hard_skills.join(', '));
-    setSoftSkillsInput(roleDef.required_soft_skills.join(', '));
     setExtractionNotice(null);
 
-    setCriteria(prev => ({
-      ...prev,
-      title: roleDef.title,
-      description: roleDef.description,
-      required_hard_skills: roleDef.required_hard_skills,
-      required_soft_skills: roleDef.required_soft_skills,
-      target_tenure_years: roleDef.target_tenure_years,
-      target_tenure_range: roleDef.target_tenure_range || '4-6 years',
-      required_education_level: roleDef.required_education_level,
-    }));
+    // If description is empty or matches another default role, load this role's sample description
+    const sampleDesc = SAMPLE_JOB_DESCRIPTIONS[roleKey] || '';
+    const hard = roleDef.required_hard_skills || [];
+    const soft = roleDef.required_soft_skills || [];
+
+    setHardSkillsInput(hard.join(', '));
+    setSoftSkillsInput(soft.join(', '));
+
+    setCriteria(prev => {
+      const nextDesc = prev.description && prev.description.trim().length > 0 ? prev.description : sampleDesc;
+      return {
+        ...prev,
+        title: roleDef.title,
+        description: nextDesc,
+        required_hard_skills: hard,
+        required_soft_skills: soft,
+        target_tenure_years: roleDef.target_tenure_years || 5.0,
+        target_tenure_range: roleDef.target_tenure_range || '4-6 years',
+        required_education_level: roleDef.required_education_level || 'bachelor',
+        weight_vector: roleDef.weight_vector || prev.weight_vector,
+      };
+    });
   };
 
   const handleFieldChange = (field, value) => {
@@ -91,22 +94,39 @@ export default function CriteriaGateway({
     }));
   };
 
+  // One-click loading of canonical sample job description
+  const handleLoadSampleDescription = (targetRoleTitle) => {
+    const roleKey = targetRoleTitle || title;
+    const sample = SAMPLE_JOB_DESCRIPTIONS[roleKey] || SAMPLE_JOB_DESCRIPTIONS["Product Manager (Tech)"];
+    handleFieldChange('description', sample);
+    runAutoExtraction(sample, roleKey);
+  };
+
   // Trigger Automatic 5D Criteria Extraction via REST API
   const runAutoExtraction = async (textToExtract, titleHint) => {
-    const text = (textToExtract || description || '').trim();
+    let text = (textToExtract !== undefined ? textToExtract : description || '').trim();
+    const activeHint = titleHint || title;
+
+    // If description is empty or too short, load the role's canonical sample description
     if (!text || text.length < 15) {
-      alert("Please enter or paste a more detailed job description (at least a few lines) to auto-extract criteria.");
-      return;
+      const sample = SAMPLE_JOB_DESCRIPTIONS[activeHint] || SAMPLE_JOB_DESCRIPTIONS["Product Manager (Tech)"];
+      if (sample) {
+        text = sample;
+        handleFieldChange('description', sample);
+      } else {
+        alert("Please enter or paste a job description (at least a few sentences) to auto-extract criteria.");
+        return;
+      }
     }
 
     setIsExtracting(true);
     try {
       const res = await jobService.extractCriteria({
         description: text,
-        title_hint: titleHint || title
+        title_hint: activeHint
       });
 
-      if (res.data && res.data.extracted) {
+      if (res.data && (res.data.extracted || res.data.is_auto_extracted || res.data.required_hard_skills)) {
         const d = res.data;
         const newHard = Array.isArray(d.required_hard_skills) ? d.required_hard_skills : [];
         const newSoft = Array.isArray(d.required_soft_skills) ? d.required_soft_skills : [];
@@ -117,8 +137,15 @@ export default function CriteriaGateway({
         setHardSkillsInput(newHard.join(', '));
         setSoftSkillsInput(newSoft.join(', '));
 
+        const matchedRole = d.title_proximity_match || d.title;
+        if (matchedRole && matchedRole !== title && onSelectRole) {
+          onSelectRole(matchedRole);
+        }
+
         setCriteria(prev => ({
           ...prev,
+          title: matchedRole || prev.title,
+          description: text,
           required_hard_skills: newHard,
           required_soft_skills: newSoft,
           target_tenure_range: newRange,
@@ -134,7 +161,12 @@ export default function CriteriaGateway({
           softCount: newSoft.length,
           tenureRange: newRange,
           education: newEdu,
-          matchedRole: d.title_proximity_match,
+          matchedRole: matchedRole,
+        });
+      } else {
+        setExtractionNotice({
+          type: 'error',
+          summary: "Could not auto-extract 5D criteria. You can edit requirements manually below."
         });
       }
     } catch (err) {
@@ -292,8 +324,16 @@ export default function CriteriaGateway({
   const w_e = Math.round((weight_vector?.w_e ?? 0.20) * 100);
   const w_d = Math.round((weight_vector?.w_d ?? 0.10) * 100);
   const totalWeight = w_h + w_s + w_t + w_e + w_d;
-
   const roleKeys = Object.keys(CANONICAL_ROLES_DATA);
+
+  // 5D dimensions should NOT be shown until there is input for the job description,
+  // or user specifically chooses manual configuration, or criteria have been auto-extracted
+  const hasDescriptionInput = Boolean(description && description.trim().length > 0);
+  const hasExtractedSkills = Boolean(
+    (Array.isArray(required_hard_skills) && required_hard_skills.length > 0) ||
+    (Array.isArray(required_soft_skills) && required_soft_skills.length > 0)
+  );
+  const is5DVisible = hasDescriptionInput || showManual5DConfig || Boolean(extractionNotice) || hasExtractedSkills;
 
   return (
     <div className={`border rounded-2xl p-6 shadow-sm transition-colors space-y-6 ${
@@ -311,10 +351,10 @@ export default function CriteriaGateway({
           </div>
           <div>
             <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Job Architecture & 5D Criteria Gateway
+              Job Setup & Candidate Criteria
             </h2>
             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Paste any job description to auto-detect 5D criteria, or select a role framework and fine-tune manually
+              Paste your job description to automatically extract requirements, or choose a job template below
             </p>
           </div>
         </div>
@@ -325,7 +365,7 @@ export default function CriteriaGateway({
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-sm transition cursor-pointer"
           >
             {savedFeedback ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-            <span>{savedFeedback ? "Criteria Saved!" : "Save & Apply Criteria"}</span>
+            <span>{savedFeedback ? "Criteria Saved!" : "Save Criteria"}</span>
           </button>
         </div>
       </div>
@@ -337,10 +377,10 @@ export default function CriteriaGateway({
             isDark ? 'text-slate-300' : 'text-slate-700'
           }`}>
             <Target className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Target Role Framework (1 of 4 Canonical Roles)</span>
+            <span>Select Job Category</span>
           </label>
-          <span className="text-[11px] text-slate-400 font-mono">
-            Strict Role-Isolated Training Data
+          <span className="text-[11px] text-slate-400">
+            Candidates are evaluated strictly for this role
           </span>
         </div>
 
@@ -372,7 +412,6 @@ export default function CriteriaGateway({
                     }`}>
                       {isSelected ? 'Active Role' : 'Select'}
                     </span>
-                    <span className="text-[10px] font-mono text-slate-400">100 CVs</span>
                   </div>
                   <h4 className={`text-xs font-bold leading-snug ${isDark ? 'text-white' : 'text-slate-900'}`}>{roleName}</h4>
                   <p className={`text-[11px] mt-1 line-clamp-2 leading-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -456,35 +495,52 @@ export default function CriteriaGateway({
             <span>Job Description & Vacancy Details</span>
           </label>
 
-          <button
-            type="button"
-            onClick={() => runAutoExtraction(description, title)}
-            disabled={isExtracting}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
-              isExtracting
-                ? 'opacity-60 cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                : isDark
-                ? 'bg-indigo-950/70 border-indigo-700/80 text-indigo-300 hover:bg-indigo-900 shadow-sm'
-                : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 shadow-sm'
-            }`}
-            title="Auto-detect technical skills, soft competencies, tenure range, education, and title proximity"
-          >
-            {isExtracting ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-            ) : (
-              <Wand2 className="w-3.5 h-3.5 text-indigo-500" />
-            )}
-            <span>{isExtracting ? "Analyzing 5D Criteria..." : "Auto-Detect 5D Criteria"}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleLoadSampleDescription()}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                isDark
+                  ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+              title="Load standard job description for this role"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>Load Sample Description</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => runAutoExtraction(description, title)}
+              disabled={isExtracting}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                isExtracting
+                  ? 'opacity-60 cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  : isDark
+                  ? 'bg-indigo-950/70 border-indigo-700/80 text-indigo-300 hover:bg-indigo-900 shadow-sm'
+                  : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 shadow-sm'
+              }`}
+              title="Auto-detect technical skills, soft competencies, tenure range, education, and title proximity"
+            >
+              {isExtracting ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+              ) : (
+                <Wand2 className="w-3.5 h-3.5 text-indigo-500" />
+              )}
+              <span>{isExtracting ? "Analyzing 5D Criteria..." : "Auto-Detect 5D Criteria"}</span>
+            </button>
+          </div>
         </div>
 
         <div className="relative">
           <textarea
-            rows="5"
+            rows="6"
+            maxLength={5000}
             value={description}
             onChange={(e) => handleDescriptionChange(e.target.value)}
             onPaste={handleDescriptionPaste}
-            placeholder="Paste or write the job description here. The system will automatically detect hard/technical skills, soft skills, tenure range, minimum education, and title proximity..."
+            placeholder="Paste or write the job description here (up to 5,000 characters). The 5D engine will automatically analyze the text to extract technical skills, soft competencies, tenure range, education benchmark, and title proximity..."
             className={`w-full rounded-xl p-3.5 text-xs leading-relaxed font-sans focus:outline-none focus:border-indigo-500 transition border ${
               isDark
                 ? 'bg-slate-800/90 border-slate-700 text-slate-100 placeholder-slate-500'
@@ -493,22 +549,58 @@ export default function CriteriaGateway({
           />
           <div className="flex items-center justify-between mt-1 text-[11px] text-slate-400 px-1">
             <span>Tip: Pasting text automatically triggers the 5D Criteria extractor.</span>
-            <span>{description.length} characters</span>
+            <span className={`font-mono ${description.length >= 4800 ? 'text-amber-500 font-bold' : ''}`}>
+              {description.length} / 5,000 characters
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 5D Extracted & Editable Criteria Grid */}
-      <div className="space-y-4 pt-2">
+      {/* 5D Dimensions Conditional Visibility */}
+      {!is5DVisible ? (
+        <div className={`p-8 rounded-2xl border text-center space-y-4 transition-colors ${
+          isDark ? 'bg-slate-900/40 border-slate-800' : 'bg-slate-50 border-slate-200'
+        }`}>
+          <div className={`w-12 h-12 rounded-2xl mx-auto flex items-center justify-center ${
+            isDark ? 'bg-indigo-950/70 text-indigo-400 border border-indigo-800' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+          }`}>
+            <Sparkles className="w-6 h-6" />
+          </div>
+          <div className="max-w-md mx-auto space-y-1.5">
+            <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Job Requirements (Waiting for Job Description)
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Paste or type your job description above. The system will automatically detect the technical skills, people skills, work experience, and education level for you to review and edit.
+            </p>
+          </div>
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowManual5DConfig(true)}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                isDark
+                  ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              + Or Set Up Requirements Manually
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 5D Extracted & Editable Criteria Grid */}
+          <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
             isDark ? 'text-slate-300' : 'text-slate-800'
           }`}>
             <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Extracted 5D Dimensions (Fully Editable)</span>
+            <span>Job Requirements (Click to Edit)</span>
           </h3>
           <span className="text-[11px] text-slate-400">
-            Recruiter can adjust any skill, tenure range, or education benchmark
+            Click any item to edit, remove, or add new requirements
           </span>
         </div>
 
@@ -521,10 +613,10 @@ export default function CriteriaGateway({
               isDark ? 'text-slate-200' : 'text-slate-800'
             }`}>
               <Code className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Dimension 1: Hard / Technical Skills ({required_hard_skills.length})</span>
+              <span>1. Technical & Practical Skills ({required_hard_skills.length})</span>
             </label>
             <span className="text-[11px] text-slate-400">
-              Click '×' on chip to remove, or type to add
+              Click '×' on a skill to remove it, or type below to add more
             </span>
           </div>
 
@@ -604,17 +696,17 @@ export default function CriteriaGateway({
               isDark ? 'text-slate-200' : 'text-slate-800'
             }`}>
               <Heart className="w-3.5 h-3.5 text-teal-500" />
-              <span>Dimension 2: Soft Competencies ({required_soft_skills.length})</span>
+              <span>2. People & Interpersonal Skills ({required_soft_skills.length})</span>
             </label>
             <span className="text-[11px] text-slate-400">
-              Click '×' on chip to remove, or type to add
+              Click '×' on a skill to remove it, or type below to add more
             </span>
           </div>
 
           {/* Interactive Chips with Quick Remove */}
           <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 rounded-lg border bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-700">
             {required_soft_skills.length === 0 ? (
-              <span className="text-[11px] text-slate-400 italic">No soft skills specified yet.</span>
+              <span className="text-[11px] text-slate-400 italic">No people skills specified yet.</span>
             ) : (
               required_soft_skills.map((skill, i) => (
                 <span
@@ -646,7 +738,7 @@ export default function CriteriaGateway({
                 type="text"
                 value={softSkillsInput}
                 onChange={(e) => handleSoftSkillsChange(e.target.value)}
-                placeholder="Edit all soft competencies as comma-separated list..."
+                placeholder="Edit all skills as comma-separated list..."
                 className={`w-full rounded-xl px-3.5 py-2 text-xs font-mono focus:outline-none focus:border-indigo-500 transition border ${
                   isDark
                     ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500'
@@ -660,7 +752,7 @@ export default function CriteriaGateway({
                 value={newSoftSkillInput}
                 onChange={(e) => setNewSoftSkillInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSoftSkill())}
-                placeholder="+ Add competency..."
+                placeholder="+ Add skill..."
                 className={`w-full rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-indigo-500 transition border ${
                   isDark
                     ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500'
@@ -689,7 +781,7 @@ export default function CriteriaGateway({
                 isDark ? 'text-slate-200' : 'text-slate-800'
               }`}>
                 <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Dimension 3: Target Tenure in Ranges</span>
+                <span>3. Required Work Experience</span>
               </label>
               <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
                 isDark ? 'bg-indigo-900/60 text-indigo-300' : 'bg-indigo-100 text-indigo-800'
@@ -758,7 +850,7 @@ export default function CriteriaGateway({
                 isDark ? 'text-slate-200' : 'text-slate-800'
               }`}>
                 <GraduationCap className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Dimension 4: Minimum Education Level</span>
+                <span>4. Minimum Education Level</span>
               </label>
               <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold capitalize ${
                 isDark ? 'bg-indigo-900/60 text-indigo-300' : 'bg-indigo-100 text-indigo-800'
@@ -778,12 +870,12 @@ export default function CriteriaGateway({
                 }`}
               >
                 <option value="high_school">High School / Diploma / Secondary Education</option>
-                <option value="bachelor">Bachelor's Degree (BSc / BEng / BA / BTech)</option>
-                <option value="master">Master's Degree (MSc / MEng / MBA / MPhil)</option>
-                <option value="phd">Doctorate / PhD / Post-Graduate Fellowship</option>
+                <option value="bachelor">Bachelor's Degree (BSc / BA / BTech / College Degree)</option>
+                <option value="master">Master's Degree (MSc / MBA / MEng)</option>
+                <option value="phd">Doctorate / PhD</option>
               </select>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Candidates with degrees equal to or exceeding this benchmark receive full credit (1.0). Lower degrees are scaled proportionally.
+                Candidates with this education level or higher receive full score credit.
               </p>
             </div>
 
@@ -791,7 +883,7 @@ export default function CriteriaGateway({
             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
               <span className="text-slate-400 flex items-center gap-1">
                 <Target className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Dimension 5: Title Proximity Framework</span>
+                <span>5. Job Title Matching</span>
               </span>
               <span className="font-semibold text-indigo-600 dark:text-indigo-400">
                 {title}
@@ -808,7 +900,7 @@ export default function CriteriaGateway({
             isDark ? 'text-slate-300' : 'text-slate-800'
           }`}>
             <Sliders className="w-3.5 h-3.5 text-indigo-500" />
-            <span>5-Dimension Scoring Simplex Weight Distribution</span>
+            <span>How Much Each Factor Matters (Score Importance)</span>
           </h3>
           <span className={`text-xs px-2.5 py-1 rounded-lg border font-mono font-bold ${
             totalWeight === 100
@@ -819,7 +911,7 @@ export default function CriteriaGateway({
               ? "bg-amber-950/50 border-amber-800 text-amber-400"
               : "bg-amber-50 border-amber-200 text-amber-800"
           }`}>
-            Sum: {totalWeight}% {totalWeight !== 100 && "(Auto-Normalized to 1.0)"}
+            Total: {totalWeight}% {totalWeight !== 100 && "(Adjust sliders to decide priorities)"}
           </span>
         </div>
 
@@ -828,7 +920,7 @@ export default function CriteriaGateway({
             isDark ? 'bg-slate-800/80 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             <div className="flex justify-between text-xs mb-1 font-semibold">
-              <span>Hard Skills (S<sub>h</sub>)</span>
+              <span>Technical Skills</span>
               <span className={`font-mono ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>{w_h}%</span>
             </div>
             <input
@@ -842,7 +934,7 @@ export default function CriteriaGateway({
             isDark ? 'bg-slate-800/80 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             <div className="flex justify-between text-xs mb-1 font-semibold">
-              <span>Soft Skills (S<sub>s</sub>)</span>
+              <span>People Skills</span>
               <span className={`font-mono ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>{w_s}%</span>
             </div>
             <input
@@ -856,7 +948,7 @@ export default function CriteriaGateway({
             isDark ? 'bg-slate-800/80 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             <div className="flex justify-between text-xs mb-1 font-semibold">
-              <span>Title Proximity (S<sub>t</sub>)</span>
+              <span>Job Title Match</span>
               <span className={`font-mono ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>{w_t}%</span>
             </div>
             <input
@@ -870,7 +962,7 @@ export default function CriteriaGateway({
             isDark ? 'bg-slate-800/80 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             <div className="flex justify-between text-xs mb-1 font-semibold">
-              <span>Stability / Tenure (S<sub>e</sub>)</span>
+              <span>Work Experience</span>
               <span className={`font-mono ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>{w_e}%</span>
             </div>
             <input
@@ -884,7 +976,7 @@ export default function CriteriaGateway({
             isDark ? 'bg-slate-800/80 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             <div className="flex justify-between text-xs mb-1 font-semibold">
-              <span>Education (S<sub>d</sub>)</span>
+              <span>Education Level</span>
               <span className={`font-mono ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>{w_d}%</span>
             </div>
             <input
@@ -902,10 +994,10 @@ export default function CriteriaGateway({
           isDark ? 'text-slate-300' : 'text-slate-800'
         }`}>
           <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>Recruiter-Discretionary Anonymization Gate</span>
+          <span>Fairness & Anti-Bias Shield (Blind Screening)</span>
         </div>
         <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Enforces NER & regex masking during parsing. Full identities remain retained for post-ranking dossier review.
+          Hides personal contact and identity details during scoring so candidates are judged purely on skill and merit. Full identities remain available when reviewing finalists.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
@@ -922,7 +1014,7 @@ export default function CriteriaGateway({
                 : 'bg-slate-50 border-slate-200 text-slate-600'
             }`}
           >
-            <span>Mask Names (PERSON)</span>
+            <span>Hide Candidate Names</span>
             {anonymization_rules?.mask_names ? (
               <CheckSquare className="w-4 h-4 text-emerald-500" />
             ) : (
@@ -943,7 +1035,7 @@ export default function CriteriaGateway({
                 : 'bg-slate-50 border-slate-200 text-slate-600'
             }`}
           >
-            <span>Mask Contact (EMAIL / TEL)</span>
+            <span>Hide Email & Phone</span>
             {anonymization_rules?.mask_contact ? (
               <CheckSquare className="w-4 h-4 text-emerald-500" />
             ) : (
@@ -964,7 +1056,7 @@ export default function CriteriaGateway({
                 : 'bg-slate-50 border-slate-200 text-slate-600'
             }`}
           >
-            <span>Mask Location (GPE / LOC)</span>
+            <span>Hide Address & City</span>
             {anonymization_rules?.mask_location ? (
               <CheckSquare className="w-4 h-4 text-emerald-500" />
             ) : (
@@ -973,6 +1065,8 @@ export default function CriteriaGateway({
           </button>
         </div>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 }

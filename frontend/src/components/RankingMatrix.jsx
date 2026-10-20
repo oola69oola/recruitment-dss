@@ -91,24 +91,24 @@ export default function RankingMatrix({
   const getStageBadge = (st) => {
     if (st === 'STAGE_FINAL' || st === 'FINAL_OUTPUT' || st === 'STAGE_4_TOP_10') {
       return {
-        label: `Authorized Finalists Output (Top ${customFinalistsTarget})`,
+        label: `Stage 4: Top Finalists (${customFinalistsTarget})`,
         color: isDark ? 'bg-amber-900/40 text-amber-300 border-amber-700/60' : 'bg-amber-100 text-amber-800 border-amber-300'
       };
     }
     if (st === 'STAGE_3' || st === 'STAGE_3_TOP_25') {
       return {
-        label: 'Stage 3: Leadership & Stability Semifinalists',
+        label: 'Stage 3: Semifinalists (Top 25%)',
         color: isDark ? 'bg-purple-900/40 text-purple-300 border-purple-700/60' : 'bg-purple-100 text-purple-800 border-purple-200'
       };
     }
     if (st === 'STAGE_2' || st === 'STAGE_2_TOP_50') {
       return {
-        label: 'Stage 2: Technical Rigor Re-Ranked (Top 50%)',
+        label: 'Stage 2: Shortlist (Top 50%)',
         color: isDark ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700/60' : 'bg-indigo-100 text-indigo-800 border-indigo-200'
       };
     }
     return {
-      label: 'Stage 1: General 5D Screening Cohort',
+      label: 'Stage 1: All Candidates (Full List)',
       color: isDark ? 'bg-blue-900/40 text-blue-300 border-blue-700/60' : 'bg-blue-100 text-blue-800 border-blue-200'
     };
   };
@@ -132,10 +132,10 @@ export default function RankingMatrix({
             </div>
             <div>
               <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Candidate Evaluation & Progressive Re-Ranking Matrix
+                Candidate Rankings & Shortlist
               </h2>
               <p className="text-xs text-slate-400">
-                5D SBERT multi-factor scoring with progressive halving stages down to authorized finalists
+                Score and rank candidates based on your criteria, then narrow down to top finalists
               </p>
             </div>
           </div>
@@ -163,24 +163,24 @@ export default function RankingMatrix({
             <div className="flex items-start gap-2.5">
               <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
               <div>
-                <strong className={`block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Confirm Target Role</strong>
-                <span className="text-[11px] text-slate-400">Choose 1 of the 4 designated canonical roles above.</span>
+                <strong className={`block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Choose Job Role</strong>
+                <span className="text-[11px] text-slate-400">Select the position you want to hire for.</span>
               </div>
             </div>
 
             <div className="flex items-start gap-2.5">
               <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
               <div>
-                <strong className={`block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Upload Candidate Resumes</strong>
-                <span className="text-[11px] text-slate-400">Upload candidate resumes via PDF, DOCX, TXT, or ZIP archive.</span>
+                <strong className={`block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Upload Resumes</strong>
+                <span className="text-[11px] text-slate-400">Add candidate resumes in PDF, Word, or ZIP format.</span>
               </div>
             </div>
 
             <div className="flex items-start gap-2.5">
               <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
               <div>
-                <strong className={`block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Execute 5D Evaluation & Ranking</strong>
-                <span className="text-[11px] text-slate-400">The 5D engine ranks uploaded candidates and shortlists the top 50%.</span>
+                <strong className={`block ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Rank & Shortlist</strong>
+                <span className="text-[11px] text-slate-400">The system automatically scores matches and highlights top candidates.</span>
               </div>
             </div>
           </div>
@@ -208,7 +208,7 @@ export default function RankingMatrix({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              <span>{isScoring ? 'Evaluating Candidates...' : 'Run 5D Evaluation'}</span>
+              <span>{isScoring ? 'Evaluating Candidates...' : 'Rank Candidates'}</span>
             </button>
           </div>
         </div>
@@ -233,14 +233,14 @@ export default function RankingMatrix({
           <div>
             <div className="flex items-center gap-2">
               <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Candidate Evaluation & Re-Ranking Matrix
+                Candidate Rankings & Shortlist
               </h2>
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${stageBadgeInfo.color}`}>
                 {stageBadgeInfo.label}
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              5D SBERT multi-factor scoring with progressive binary halving down to authorized finalists
+              Rankings calculated from job skills, experience, and education matches
             </p>
           </div>
         </div>
@@ -255,7 +255,7 @@ export default function RankingMatrix({
                 ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
                 : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
             }`}
-            title="Download full cohort ranking report as CSV (All candidates included)"
+            title="Download full candidate ranking report as CSV"
           >
             <Download className="w-3.5 h-3.5 text-indigo-500" />
             <span>Export CSV</span>
@@ -268,7 +268,7 @@ export default function RankingMatrix({
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs shadow-sm transition cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{isScoring ? 'Evaluating Cohort...' : 'Re-Evaluate All Candidates'}</span>
+            <span>{isScoring ? 'Evaluating Candidates...' : 'Refresh Rankings'}</span>
           </button>
         </div>
       </div>
@@ -283,10 +283,10 @@ export default function RankingMatrix({
           <div>
             <span className={`font-bold text-xs flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               <TrendingUp className="w-4 h-4 text-indigo-500" />
-              <span>Progressive Binary Halving Pipeline</span>
+              <span>Step-by-Step Candidate Shortlisting</span>
             </span>
             <span className="text-[11px] text-slate-400">
-              Top 50% advance to the subsequent stage; least 50% are put away from further ranking.
+              Narrow down your candidates stage by stage to find the best interview finalists.
             </span>
           </div>
 
@@ -295,7 +295,7 @@ export default function RankingMatrix({
             isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
           }`}>
             <span className={`text-xs font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-              Authorized Finalists (K):
+              Target Finalists:
             </span>
             <input
               type="number"
@@ -344,7 +344,7 @@ export default function RankingMatrix({
                 : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
             }`}
           >
-            <span>⚡ Advance to Stage 2 (Technical Rigor Deep-Dive)</span>
+            <span>⚡ Stage 2: Cut to Top 50%</span>
           </button>
 
           <button
@@ -359,7 +359,7 @@ export default function RankingMatrix({
                 : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
             }`}
           >
-            <span>🚀 Advance to Stage 3 (Leadership & Stability)</span>
+            <span>🚀 Stage 3: Semifinalists</span>
           </button>
 
           <button
@@ -375,7 +375,7 @@ export default function RankingMatrix({
             }`}
           >
             <Trophy className="w-3.5 h-3.5 text-amber-500" />
-            <span>🏆 Finalize Top {customFinalistsTarget} Placement Finalists</span>
+            <span>🏆 Finalists for Interviews (Top {customFinalistsTarget})</span>
           </button>
 
           <button
@@ -454,11 +454,11 @@ export default function RankingMatrix({
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Excluded / Put Away ({belowCutoffCount})
+            Not Shortlisted ({belowCutoffCount})
           </button>
         </div>
         <span className="text-[11px] text-slate-400 hidden md:inline">
-          💡 Click any candidate row to inspect their Decision Narrative and 5D SHAP Dossier
+          💡 Click any candidate to view detailed skill breakdown, experience, and recommendations
         </span>
       </div>
 
@@ -474,13 +474,13 @@ export default function RankingMatrix({
                 : 'border-slate-200 bg-slate-50/80 text-slate-600'
             }`}>
               <th className="py-3 px-3.5 text-center">Rank</th>
-              <th className="py-3 px-3.5">Candidate Identity</th>
-              <th className="py-3 px-3.5">Funnel Status</th>
-              <th className="py-3 px-3.5">Hard Skills (S<sub>h</sub>)</th>
-              <th className="py-3 px-3.5">Soft Skills (S<sub>s</sub>)</th>
-              <th className="py-3 px-3.5">Stability (S<sub>e2</sub>)</th>
-              <th className="py-3 px-3.5 text-right">Composite Score</th>
-              <th className="py-3 px-3.5 text-center">Inspect</th>
+              <th className="py-3 px-3.5">Candidate</th>
+              <th className="py-3 px-3.5">Status</th>
+              <th className="py-3 px-3.5">Technical Skills</th>
+              <th className="py-3 px-3.5">People Skills</th>
+              <th className="py-3 px-3.5">Experience</th>
+              <th className="py-3 px-3.5 text-right">Overall Match</th>
+              <th className="py-3 px-3.5 text-center">Details</th>
             </tr>
           </thead>
           <tbody className={`divide-y ${isDark ? 'divide-slate-800' : 'divide-slate-100'}`}>
@@ -513,7 +513,7 @@ export default function RankingMatrix({
                     isDark ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                   }`}>
                     <CheckCircle className="w-3 h-3 text-emerald-500" />
-                    <span>Top 50% Advanced</span>
+                    <span>Shortlisted</span>
                   </span>
                 );
               } else {
@@ -522,7 +522,7 @@ export default function RankingMatrix({
                     isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border border-slate-200'
                   }`}>
                     <XCircle className="w-3 h-3 text-slate-400" />
-                    <span>Put Away from Next Stage</span>
+                    <span>Not Shortlisted</span>
                   </span>
                 );
               }
