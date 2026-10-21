@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { CANONICAL_ROLES_DATA, TENURE_RANGES, SAMPLE_JOB_DESCRIPTIONS } from '../constants/roles';
 import { jobService } from '../services/api';
+import { extract5DCriteria } from '../services/criteriaExtractor';
 
 export default function CriteriaGateway({
   criteria,
@@ -102,7 +103,7 @@ export default function CriteriaGateway({
     runAutoExtraction(sample, roleKey);
   };
 
-  // Trigger Automatic 5D Criteria Extraction via REST API
+  // Trigger Automatic 5D Criteria Extraction via REST API with Hybrid Client Fallback
   const runAutoExtraction = async (textToExtract, titleHint) => {
     let text = (textToExtract !== undefined ? textToExtract : description || '').trim();
     const activeHint = titleHint || title;
@@ -120,64 +121,73 @@ export default function CriteriaGateway({
     }
 
     setIsExtracting(true);
+    setExtractionNotice(null);
+
+    let extractedData = null;
+
+    // 1. Try remote Django backend if reachable
     try {
       const res = await jobService.extractCriteria({
         description: text,
         title_hint: activeHint
       });
-
-      if (res.data && (res.data.extracted || res.data.is_auto_extracted || res.data.required_hard_skills)) {
-        const d = res.data;
-        const newHard = Array.isArray(d.required_hard_skills) ? d.required_hard_skills : [];
-        const newSoft = Array.isArray(d.required_soft_skills) ? d.required_soft_skills : [];
-        const newRange = d.target_tenure_range || '4-6 years';
-        const newYears = parseFloat(d.target_tenure_years) || 5.0;
-        const newEdu = d.required_education_level || 'bachelor';
-
-        setHardSkillsInput(newHard.join(', '));
-        setSoftSkillsInput(newSoft.join(', '));
-
-        const matchedRole = d.title_proximity_match || d.title;
-        if (matchedRole && matchedRole !== title && onSelectRole) {
-          onSelectRole(matchedRole);
-        }
-
-        setCriteria(prev => ({
-          ...prev,
-          title: matchedRole || prev.title,
-          description: text,
-          required_hard_skills: newHard,
-          required_soft_skills: newSoft,
-          target_tenure_range: newRange,
-          target_tenure_years: newYears,
-          required_education_level: newEdu,
-          weight_vector: d.weight_vector || prev.weight_vector,
-        }));
-
-        setExtractionNotice({
-          type: 'success',
-          summary: d.summary,
-          hardCount: newHard.length,
-          softCount: newSoft.length,
-          tenureRange: newRange,
-          education: newEdu,
-          matchedRole: matchedRole,
-        });
-      } else {
-        setExtractionNotice({
-          type: 'error',
-          summary: "Could not auto-extract 5D criteria. You can edit requirements manually below."
-        });
+      if (res?.data && (res.data.extracted || res.data.is_auto_extracted || res.data.required_hard_skills)) {
+        extractedData = res.data;
       }
     } catch (err) {
-      console.error("Auto-extraction error:", err);
+      console.warn("Backend 5D extraction endpoint unreachable, running standalone client-side extractor:", err?.message);
+    }
+
+    // 2. Seamless Client-Side Fallback if backend returned nothing or failed (e.g. Netlify)
+    if (!extractedData) {
+      extractedData = extract5DCriteria(text, activeHint);
+    }
+
+    if (extractedData) {
+      const d = extractedData;
+      const newHard = Array.isArray(d.required_hard_skills) ? d.required_hard_skills : [];
+      const newSoft = Array.isArray(d.required_soft_skills) ? d.required_soft_skills : [];
+      const newRange = d.target_tenure_range || '4-6 years';
+      const newYears = parseFloat(d.target_tenure_years) || 5.0;
+      const newEdu = d.required_education_level || 'bachelor';
+
+      setHardSkillsInput(newHard.join(', '));
+      setSoftSkillsInput(newSoft.join(', '));
+
+      const matchedRole = d.title_proximity_match || d.title;
+      if (matchedRole && matchedRole !== title && onSelectRole) {
+        onSelectRole(matchedRole);
+      }
+
+      setCriteria(prev => ({
+        ...prev,
+        title: matchedRole || prev.title,
+        description: text,
+        required_hard_skills: newHard,
+        required_soft_skills: newSoft,
+        target_tenure_range: newRange,
+        target_tenure_years: newYears,
+        required_education_level: newEdu,
+        weight_vector: d.weight_vector || prev.weight_vector,
+      }));
+
+      setExtractionNotice({
+        type: 'success',
+        summary: d.summary || `Extracted ${newHard.length} technical skills, ${newSoft.length} soft competencies, and ${newRange} tenure benchmark.`,
+        hardCount: newHard.length,
+        softCount: newSoft.length,
+        tenureRange: newRange,
+        education: newEdu,
+        matchedRole: matchedRole,
+      });
+    } else {
       setExtractionNotice({
         type: 'error',
-        summary: "Could not auto-extract from the server. You can still manually edit all 5D fields below."
+        summary: "Could not auto-extract 5D criteria. You can edit requirements manually below."
       });
-    } finally {
-      setIsExtracting(false);
     }
+
+    setIsExtracting(false);
   };
 
   // Immediate extraction when user pastes job description
