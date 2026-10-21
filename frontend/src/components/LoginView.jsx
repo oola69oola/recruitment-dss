@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Shield, User, Lock, ArrowRight, Sun, Moon, Mail, Building, UserPlus, LogIn, ArrowLeft } from 'lucide-react';
 import { authService } from '../services/api';
+import { authStorage } from '../services/authStorage';
 
 export default function LoginView({
   onLoginSuccess,
@@ -42,52 +43,15 @@ export default function LoginView({
     setErrorMessage('');
 
     try {
-      const res = await authService.login({
-        username: username.trim(),
-        password: password.trim(),
-      });
-
-      if (res.data?.access) {
-        localStorage.setItem('recruitiq_token', res.data.access);
-        const userObj = res.data.user || {
-          email: username.includes('@') ? username : `${username}@recruitiq.io`,
-          first_name: username.toUpperCase(),
-          last_name: 'Recruiter',
-          role: 'RECRUITER'
-        };
-        localStorage.setItem('recruitiq_user', JSON.stringify(userObj));
-        onLoginSuccess(userObj);
-      } else {
-        // Fallback for mock session
-        const mockUser = {
-          email: username.includes('@') ? username : `${username}@recruitiq.io`,
-          first_name: username.toUpperCase(),
-          last_name: 'Recruiter',
-          role: 'RECRUITER'
-        };
-        localStorage.setItem('recruitiq_user', JSON.stringify(mockUser));
-        onLoginSuccess(mockUser);
+      const result = await authStorage.login(username.trim(), password.trim());
+      if (result?.success && result.user) {
+        onLoginSuccess(result.user);
       }
     } catch (err) {
-      console.warn("Direct auth error, checking demo fallback:", err);
-      // Demo credentials fallback
-      if (
-        (username.toLowerCase() === 'recruiter' || username.toLowerCase() === 'admin') &&
-        (password === 'recruitiq2026' || password === 'password123')
-      ) {
-        const mockUser = {
-          email: `${username}@recruitiq.io`,
-          first_name: username === 'admin' ? 'Administrator' : 'Lead Recruiter',
-          last_name: 'DSS',
-          role: 'RECRUITER'
-        };
-        localStorage.setItem('recruitiq_user', JSON.stringify(mockUser));
-        onLoginSuccess(mockUser);
-      } else {
-        setErrorMessage(
-          err.response?.data?.detail || err.response?.data?.error || 'Invalid credentials. You can use the demo account or sign up for a new account.'
-        );
-      }
+      console.warn("Direct auth error:", err);
+      setErrorMessage(
+        err.message || 'Invalid credentials. You can use the demo account (recruiter / recruitiq2026) or sign up for a new account.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -110,57 +74,21 @@ export default function LoginView({
     setSuccessMessage('');
 
     try {
-      const payload = {
-        email: regEmail.trim().toLowerCase(),
-        password: regPassword,
+      const result = await authStorage.register({
+        email: regEmail.trim(),
+        password: regPassword.trim(),
         first_name: regFirstName.trim() || regEmail.split('@')[0],
         last_name: regLastName.trim(),
         role: regRole,
-      };
+        organization: regOrganization.trim()
+      });
 
-      const res = await authService.register(payload);
-
-      if (res.data?.access) {
-        // Auto-login on registration
-        localStorage.setItem('recruitiq_token', res.data.access);
-        const userObj = res.data.user || {
-          email: payload.email,
-          first_name: payload.first_name,
-          last_name: payload.last_name,
-          role: payload.role,
-          organization: regOrganization.trim()
-        };
-        localStorage.setItem('recruitiq_user', JSON.stringify(userObj));
-        onLoginSuccess(userObj);
-      } else {
-        // If registered without direct token, attempt instant login
-        const loginRes = await authService.login({
-          username: payload.email,
-          password: payload.password,
-        });
-
-        if (loginRes.data?.access) {
-          localStorage.setItem('recruitiq_token', loginRes.data.access);
-          const userObj = loginRes.data.user || payload;
-          localStorage.setItem('recruitiq_user', JSON.stringify(userObj));
-          onLoginSuccess(userObj);
-        } else {
-          setSuccessMessage("Account created successfully! Please sign in with your credentials.");
-          setUsername(payload.email);
-          setMode('signin');
-        }
+      if (result?.success && result.user) {
+        onLoginSuccess(result.user);
       }
     } catch (err) {
       console.error("Registration error:", err);
-      const errors = err.response?.data;
-      if (errors) {
-        const firstErr = typeof errors === 'string' 
-          ? errors 
-          : Object.values(errors).flat().join(' ');
-        setErrorMessage(firstErr || "Registration failed. This email may already be registered.");
-      } else {
-        setErrorMessage("Could not connect to the registration service. Please verify your connection.");
-      }
+      setErrorMessage(err.message || "Registration failed. Please check your inputs.");
     } finally {
       setIsLoading(false);
     }

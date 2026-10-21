@@ -7,6 +7,7 @@ import XaiDrawer from './components/XaiDrawer';
 import LoginView from './components/LoginView';
 import HomePage from './components/HomePage';
 import { jobService, candidateService, evaluationService } from './services/api';
+import { authStorage } from './services/authStorage';
 import {
   Sparkles,
   Briefcase,
@@ -36,24 +37,39 @@ export default function App() {
   // Theme State: 'light' | 'dark'
   const [theme, setTheme] = useState(() => localStorage.getItem('recruitiq_theme') || 'light');
 
-  // Authentication State
+  // Authentication State: loads persisted user session
   const [currentUser, setCurrentUser] = useState(() => {
-    const cached = localStorage.getItem('recruitiq_user');
-    if (cached) {
-      try {
-        return JSON.parse(cached);
-      } catch (e) {}
-    }
-    return null;
+    return authStorage.getCurrentUser();
   });
 
   // Top-Level Navigation View: 'home' | 'login' | 'dashboard'
-  // Home page is ALWAYS the landing page that loads first when anyone visits the site
+  // Persists current view so refreshing never kicks the user out of the dashboard!
   const [currentView, setCurrentView] = useState(() => {
     const hash = window.location.hash.toLowerCase();
     if (hash === '#login' || hash === '#signin') return 'login';
     if (hash === '#signup') return 'login';
     if (hash === '#dashboard') return 'dashboard';
+    if (['#matrix', '#evaluations', '#ingestion', '#upload', '#dossier', '#role-spec', '#criteria'].includes(hash)) {
+      return 'dashboard';
+    }
+
+    // Check localStorage preference
+    const savedView = localStorage.getItem('recruitiq_current_view');
+    const cachedUser = authStorage.getCurrentUser();
+
+    if (savedView === 'dashboard' && cachedUser) {
+      return 'dashboard';
+    }
+    if (savedView === 'login') {
+      return 'login';
+    }
+    if (savedView === 'home') {
+      return 'home';
+    }
+    // If logged in, stay on dashboard on reload
+    if (cachedUser) {
+      return 'dashboard';
+    }
     return 'home';
   });
 
@@ -61,6 +77,26 @@ export default function App() {
     const hash = window.location.hash.toLowerCase();
     return hash === '#signup' ? 'signup' : 'signin';
   });
+
+  // Keep localStorage and URL hash in sync with currentView
+  useEffect(() => {
+    localStorage.setItem('recruitiq_current_view', currentView);
+    const hash = window.location.hash.toLowerCase();
+    if (currentView === 'dashboard') {
+      if (!hash.includes('dashboard') && !['#matrix', '#ingestion', '#dossier', '#role-spec'].includes(hash)) {
+        window.history.replaceState(null, '', '#dashboard');
+      }
+    } else if (currentView === 'login') {
+      const targetHash = loginInitialMode === 'signup' ? '#signup' : '#login';
+      if (hash !== targetHash) {
+        window.history.replaceState(null, '', targetHash);
+      }
+    } else if (currentView === 'home') {
+      if (['#dashboard', '#login', '#signin', '#signup', '#matrix', '#ingestion', '#dossier', '#role-spec'].includes(hash)) {
+        window.history.replaceState(null, '', '#home');
+      }
+    }
+  }, [currentView, loginInitialMode]);
 
   // Listen for hash navigation changes
   useEffect(() => {
@@ -74,6 +110,18 @@ export default function App() {
         setCurrentView('login');
       } else if (hash === '#dashboard') {
         setCurrentView('dashboard');
+      } else if (['#matrix', '#evaluations'].includes(hash)) {
+        setCurrentView('dashboard');
+        setActiveTab('matrix');
+      } else if (['#ingestion', '#upload'].includes(hash)) {
+        setCurrentView('dashboard');
+        setActiveTab('ingestion');
+      } else if (hash === '#dossier') {
+        setCurrentView('dashboard');
+        setActiveTab('dossier');
+      } else if (['#role-spec', '#criteria'].includes(hash)) {
+        setCurrentView('dashboard');
+        setActiveTab('role-spec');
       } else if (['#features', '#funnel', '#explainability', '#roles'].includes(hash)) {
         setCurrentView('home');
         setTimeout(() => {
@@ -81,7 +129,7 @@ export default function App() {
           const el = document.getElementById(id);
           if (el) el.scrollIntoView({ behavior: 'smooth' });
         }, 60);
-      } else if (hash === '#home' || hash === '' || hash === '#') {
+      } else if (hash === '#home') {
         setCurrentView('home');
       }
     };
@@ -90,23 +138,87 @@ export default function App() {
   }, []);
 
   // Dashboard Workflow Tab: Step 1 (role-spec), Step 2 (ingestion), Step 3 (matrix), Step 4 (dossier)
-  const [activeTab, setActiveTab] = useState('role-spec');
-  const defaultRole = CANONICAL_ROLES_DATA["Product Manager (Tech)"];
-
-  const [activeJob, setActiveJob] = useState({
-    id: 'demo-job-1',
-    title: defaultRole.title,
-    description: '',
-    required_hard_skills: [],
-    required_soft_skills: [],
-    required_education_level: defaultRole.required_education_level,
-    weight_vector: { w_h: 0.35, w_s: 0.15, w_t: 0.20, w_e: 0.20, w_d: 0.10 },
-    anonymization_rules: { mask_names: true, mask_contact: true, mask_location: false, mask_demographics: true },
+  // Persisted in localStorage so refreshing stays on the active tab!
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = window.location.hash.toLowerCase();
+    if (hash === '#matrix' || hash === '#evaluations') return 'matrix';
+    if (hash === '#ingestion' || hash === '#upload') return 'ingestion';
+    if (hash === '#dossier') return 'dossier';
+    if (hash === '#role-spec' || hash === '#criteria') return 'role-spec';
+    return localStorage.getItem('recruitiq_active_tab') || 'role-spec';
   });
 
-  // Strictly blank on fresh login: No demo rankings or pre-populated dummy candidates!
-  const [evaluations, setEvaluations] = useState([]);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  useEffect(() => {
+    localStorage.setItem('recruitiq_active_tab', activeTab);
+  }, [activeTab]);
+
+  const defaultRole = CANONICAL_ROLES_DATA["Product Manager (Tech)"];
+
+  const [activeJob, setActiveJob] = useState(() => {
+    try {
+      const cached = localStorage.getItem('recruitiq_active_job');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return {
+      id: 'demo-job-1',
+      title: defaultRole.title,
+      description: '',
+      required_hard_skills: [],
+      required_soft_skills: [],
+      required_education_level: defaultRole.required_education_level,
+      weight_vector: { w_h: 0.35, w_s: 0.15, w_t: 0.20, w_e: 0.20, w_d: 0.10 },
+      anonymization_rules: { mask_names: true, mask_contact: true, mask_location: false, mask_demographics: true },
+    };
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('recruitiq_active_job', JSON.stringify(activeJob));
+    } catch (e) {}
+  }, [activeJob]);
+
+  // Persist evaluations across page refreshes so candidate results are never lost!
+  const [evaluations, setEvaluations] = useState(() => {
+    try {
+      const cached = localStorage.getItem('recruitiq_evaluations');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (evaluations && evaluations.length > 0) {
+        localStorage.setItem('recruitiq_evaluations', JSON.stringify(evaluations));
+      } else {
+        localStorage.removeItem('recruitiq_evaluations');
+      }
+    } catch (e) {
+      console.warn("Storage quota notice:", e);
+    }
+  }, [evaluations]);
+
+  // Persist selected candidate for deep-dive inspections
+  const [selectedCandidate, setSelectedCandidate] = useState(() => {
+    try {
+      const cached = localStorage.getItem('recruitiq_selected_candidate');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (selectedCandidate) {
+        localStorage.setItem('recruitiq_selected_candidate', JSON.stringify(selectedCandidate));
+      } else {
+        localStorage.removeItem('recruitiq_selected_candidate');
+      }
+    } catch (e) {}
+  }, [selectedCandidate]);
+
   const [isUploading, setIsUploading] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
   const [isBenchmarkLoading, setIsBenchmarkLoading] = useState(false);
@@ -198,20 +310,28 @@ export default function App() {
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
-    // Explicit requirement: Blank on login!
+    // Blank on fresh login
     setEvaluations([]);
     setSelectedCandidate(null);
+    localStorage.removeItem('recruitiq_evaluations');
+    localStorage.removeItem('recruitiq_selected_candidate');
     setCurrentFunnelStage('STAGE_1_ALL');
     setCurrentView('dashboard');
+    localStorage.setItem('recruitiq_current_view', 'dashboard');
+    window.location.hash = '#dashboard';
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('recruitiq_user');
-    localStorage.removeItem('recruitiq_token');
+    authStorage.logout();
     setCurrentUser(null);
     setEvaluations([]);
     setSelectedCandidate(null);
+    localStorage.removeItem('recruitiq_evaluations');
+    localStorage.removeItem('recruitiq_selected_candidate');
+    localStorage.removeItem('recruitiq_active_tab');
     setCurrentView('home');
+    localStorage.setItem('recruitiq_current_view', 'home');
+    window.location.hash = '#home';
   };
 
   const handleCriteriaSave = async () => {
@@ -447,14 +567,20 @@ export default function App() {
         onNavigateToApp={() => {
           if (currentUser) {
             setCurrentView('dashboard');
+            localStorage.setItem('recruitiq_current_view', 'dashboard');
+            window.location.hash = '#dashboard';
           } else {
             setLoginInitialMode('signin');
             setCurrentView('login');
+            localStorage.setItem('recruitiq_current_view', 'login');
+            window.location.hash = '#login';
           }
         }}
         onNavigateToLogin={(mode) => {
           setLoginInitialMode(mode || 'signin');
           setCurrentView('login');
+          localStorage.setItem('recruitiq_current_view', 'login');
+          window.location.hash = (mode === 'signup') ? '#signup' : '#login';
         }}
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -471,9 +597,17 @@ export default function App() {
         theme={theme}
         onToggleTheme={toggleTheme}
         initialMode={loginInitialMode}
-        onBackToHome={() => setCurrentView('home')}
+        onBackToHome={() => {
+          setCurrentView('home');
+          localStorage.setItem('recruitiq_current_view', 'home');
+          window.location.hash = '#home';
+        }}
         currentUser={currentUser}
-        onGoToDashboard={() => setCurrentView('dashboard')}
+        onGoToDashboard={() => {
+          setCurrentView('dashboard');
+          localStorage.setItem('recruitiq_current_view', 'dashboard');
+          window.location.hash = '#dashboard';
+        }}
       />
     );
   }
@@ -525,7 +659,11 @@ export default function App() {
           {/* Quick link to public Home Page */}
           <button
             type="button"
-            onClick={() => setCurrentView('home')}
+            onClick={() => {
+              setCurrentView('home');
+              localStorage.setItem('recruitiq_current_view', 'home');
+              window.location.hash = '#home';
+            }}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
               isDark
                 ? 'bg-slate-800/60 border-slate-700/80 text-slate-300 hover:bg-slate-800'

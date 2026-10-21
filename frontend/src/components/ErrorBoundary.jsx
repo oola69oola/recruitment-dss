@@ -77,7 +77,11 @@ export default class ErrorBoundary extends React.Component {
             )}
             <button
               onClick={() => {
+                const savedAccounts = localStorage.getItem('recruitiq_user_accounts');
                 localStorage.clear();
+                if (savedAccounts) {
+                  localStorage.setItem('recruitiq_user_accounts', savedAccounts);
+                }
                 window.location.href = '/';
               }}
               style={{
